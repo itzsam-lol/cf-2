@@ -445,6 +445,60 @@ CREATE POLICY "Admins read messages in institution"
   ));
 
 -- ============================================================
+-- 14. RETURN WINDOW + CLAIM DISPUTES
+--     (see feature_upgrade_2.sql for the standalone idempotent migration)
+-- ============================================================
+
+ALTER TABLE items ADD COLUMN IF NOT EXISTS returned_at TIMESTAMPTZ;
+
+CREATE TABLE claim_disputes (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  item_id UUID REFERENCES items(id) ON DELETE CASCADE NOT NULL,
+  claim_id UUID REFERENCES claims(id) ON DELETE SET NULL,
+  finder_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  receiver_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  reporter_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  reason TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  closed_at TIMESTAMPTZ,
+  UNIQUE (item_id, reporter_id)
+);
+CREATE INDEX idx_claim_disputes_item ON claim_disputes(item_id);
+ALTER TABLE claim_disputes ENABLE ROW LEVEL SECURITY;
+
+CREATE OR REPLACE FUNCTION public.is_dispute_participant(_dispute_id uuid)
+RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM claim_disputes d WHERE d.id = _dispute_id
+    AND (d.finder_id = auth.uid() OR d.receiver_id = auth.uid() OR d.reporter_id = auth.uid()));
+$$;
+
+CREATE POLICY "Participants read disputes" ON claim_disputes FOR SELECT TO authenticated
+  USING (finder_id = auth.uid() OR receiver_id = auth.uid() OR reporter_id = auth.uid()
+    OR EXISTS (SELECT 1 FROM items i WHERE i.id = claim_disputes.item_id
+      AND i.institution_id = public.get_auth_user_institution()
+      AND (public.get_auth_user_role() = 'campus_admin' OR public.get_auth_user_role() = 'super_admin')));
+
+CREATE TABLE dispute_messages (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  dispute_id UUID REFERENCES claim_disputes(id) ON DELETE CASCADE NOT NULL,
+  sender_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  body TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX idx_dispute_messages_dispute ON dispute_messages(dispute_id, created_at);
+ALTER TABLE dispute_messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Participants read dispute messages" ON dispute_messages FOR SELECT TO authenticated
+  USING (public.is_dispute_participant(dispute_id));
+CREATE POLICY "Participants send dispute messages" ON dispute_messages FOR INSERT TO authenticated
+  WITH CHECK (sender_id = auth.uid() AND public.is_dispute_participant(dispute_id));
+CREATE POLICY "Admins read dispute messages" ON dispute_messages FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM claim_disputes d JOIN items i ON i.id = d.item_id
+    WHERE d.id = dispute_messages.dispute_id AND i.institution_id = public.get_auth_user_institution()
+      AND (public.get_auth_user_role() = 'campus_admin' OR public.get_auth_user_role() = 'super_admin')));
+
+-- ============================================================
 -- 12. SEED DATA
 -- ============================================================
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, LayoutGrid, ShieldCheck, History, Loader2, Package, Users, CheckCircle2, MessageCircle, X } from 'lucide-react';
+import { LayoutGrid, ShieldCheck, History, Loader2, Package, Users, CheckCircle2, MessageCircle, X, Flag } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
@@ -31,14 +31,26 @@ interface AdminItem {
   reporter?: { name: string; email: string } | null;
   claims: AdminClaim[];
 }
+interface AdminDispute {
+  id: string;
+  status: string;
+  reason: string;
+  created_at: string;
+  item_id: string;
+  finder?: { name: string } | null;
+  receiver?: { name: string } | null;
+  reporter?: { name: string } | null;
+  items?: { title: string } | null;
+}
 
 export default function AdminOversightPage() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<AdminItem[]>([]);
   const [institutionName, setInstitutionName] = useState('CampusFind');
-  const [view, setView] = useState<'overview' | 'claims' | 'audit'>('overview');
+  const [view, setView] = useState<'overview' | 'claims' | 'audit' | 'disputes'>('overview');
   const [userId, setUserId] = useState<string | null>(null);
-  const [chatClaim, setChatClaim] = useState<AdminClaim | null>(null);
+  const [disputes, setDisputes] = useState<AdminDispute[]>([]);
+  const [chatTarget, setChatTarget] = useState<{ kind: 'claim' | 'dispute'; id: string } | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -69,6 +81,12 @@ export default function AdminOversightPage() {
           .order('created_at', { ascending: false });
         if (error) throw error;
         setItems((itemsData as unknown as AdminItem[]) || []);
+
+        const { data: disputeRows } = await supabase
+          .from('claim_disputes')
+          .select('id, status, reason, created_at, item_id, items!inner(title), finder:users!finder_id(name), receiver:users!receiver_id(name), reporter:users!reporter_id(name)')
+          .order('created_at', { ascending: false });
+        setDisputes((disputeRows as unknown as AdminDispute[]) || []);
       } catch (e) {
         console.error(e);
         toast.error('Failed to load oversight data');
@@ -105,6 +123,7 @@ export default function AdminOversightPage() {
         <div className="flex md:flex-col gap-2">
           <NavBtn v="overview" icon={LayoutGrid} label="Overview" />
           <NavBtn v="claims" icon={ShieldCheck} label="Active Claims" />
+          <NavBtn v="disputes" icon={Flag} label="Disputes" />
           <NavBtn v="audit" icon={History} label="Audit Trail" />
         </div>
         <div className="mt-auto hidden md:block px-3 pt-6">
@@ -153,11 +172,34 @@ export default function AdminOversightPage() {
                       <p className="font-semibold">{c.item.title}</p>
                       <p className="text-xs text-on-surface-variant">{c.claimant?.name || 'Student'} → finder {c.item.reporter?.name || 'Unknown'} · {new Date(c.created_at).toLocaleDateString()}</p>
                     </div>
-                    <button onClick={() => setChatClaim(c)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline-variant text-xs font-semibold hover:bg-surface-container-low"><MessageCircle size={14} /> View chat</button>
+                    <button onClick={() => setChatTarget({ kind: 'claim', id: c.id })} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline-variant text-xs font-semibold hover:bg-surface-container-low"><MessageCircle size={14} /> View chat</button>
                   </div>
                   <AccuracyMeter score={c.ai_match_score} />
                   {c.ai_analysis && <p className="text-xs text-on-surface-variant bg-surface-container-low border border-border rounded-lg p-2.5 mt-3"><span className="font-semibold text-primary">AI: </span>{c.ai_analysis}</p>}
                   <p className="text-sm text-on-surface-variant bg-surface-container-lowest rounded-lg p-3 border border-border mt-3">&ldquo;{c.verification_proof}&rdquo;</p>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {view === 'disputes' && (
+          <>
+            <h1 className="text-3xl font-semibold mb-1">Disputes</h1>
+            <p className="text-on-surface-variant mb-6">Reports that the wrong person received a returned item. Read-only oversight.</p>
+            <div className="space-y-4">
+              {disputes.length === 0 && <Empty label="No disputes filed." />}
+              {disputes.map((d) => (
+                <div key={d.id} className="bg-background border border-border rounded-xl p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="font-semibold">{d.items?.title || 'Item'}</p>
+                      <p className="text-xs text-on-surface-variant">Reported by {d.reporter?.name || '—'} · finder {d.finder?.name || '—'} · received by {d.receiver?.name || '—'} · {new Date(d.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${d.status === 'open' ? 'bg-error/15 text-error' : 'bg-success/15 text-success'}`}>{d.status}</span>
+                  </div>
+                  <p className="text-sm text-on-surface-variant bg-surface-container-lowest rounded-lg p-3 border border-border mb-3">&ldquo;{d.reason}&rdquo;</p>
+                  <button onClick={() => setChatTarget({ kind: 'dispute', id: d.id })} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline-variant text-xs font-semibold hover:bg-surface-container-low"><MessageCircle size={14} /> View chat</button>
                 </div>
               ))}
             </div>
@@ -187,15 +229,17 @@ export default function AdminOversightPage() {
         )}
       </main>
 
-      {chatClaim && userId && (
+      {chatTarget && userId && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-on-background/60 backdrop-blur-sm">
           <motion.div initial={{ scale: 0.96 }} animate={{ scale: 1 }} className="bg-surface w-full max-w-md rounded-2xl overflow-hidden shadow-xl flex flex-col h-[70vh]">
             <div className="px-4 py-3 border-b border-outline-variant flex justify-between items-center">
-              <span className="font-semibold text-sm">Conversation oversight</span>
-              <button onClick={() => setChatClaim(null)} className="text-on-surface-variant hover:text-error p-1"><X size={20} /></button>
+              <span className="font-semibold text-sm">{chatTarget.kind === 'dispute' ? 'Dispute' : 'Conversation'} oversight</span>
+              <button onClick={() => setChatTarget(null)} className="text-on-surface-variant hover:text-error p-1"><X size={20} /></button>
             </div>
             <div className="flex-1 p-3">
-              <ChatPanel claimId={chatClaim.id} currentUserId={userId} readOnly />
+              {chatTarget.kind === 'dispute'
+                ? <ChatPanel disputeId={chatTarget.id} currentUserId={userId} readOnly />
+                : <ChatPanel claimId={chatTarget.id} currentUserId={userId} readOnly />}
             </div>
           </motion.div>
         </div>

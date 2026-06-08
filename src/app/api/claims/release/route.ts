@@ -62,7 +62,7 @@ export async function POST(request: Request) {
 
     const { error: itemUpdateError } = await serviceClient
       .from('items')
-      .update({ status: 'claimed' })
+      .update({ status: 'claimed', returned_at: new Date().toISOString() })
       .eq('id', item.id);
     if (itemUpdateError) throw itemUpdateError;
 

@@ -12,20 +12,26 @@ interface Message {
   sender?: { name: string } | null;
 }
 
-// Claim-scoped chat between the claimant and the item's finder.
-// Reads/writes the `messages` table directly; RLS restricts access to the two
-// participants (and read-only for admins). Polls for new messages.
+// Chat scoped to either a claim (claimant ↔ finder) or a dispute (3-way:
+// finder + receiver + reporter). Reads/writes the matching table directly;
+// RLS restricts access to participants (admins read-only). Polls for updates.
 export default function ChatPanel({
   claimId,
+  disputeId,
   currentUserId,
   otherPartyName,
   readOnly = false,
 }: {
-  claimId: string;
+  claimId?: string;
+  disputeId?: string;
   currentUserId: string;
   otherPartyName?: string;
   readOnly?: boolean;
 }) {
+  const table = disputeId ? 'dispute_messages' : 'messages';
+  const scopeCol = disputeId ? 'dispute_id' : 'claim_id';
+  const scopeId = disputeId ?? claimId ?? '';
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(true);
@@ -35,13 +41,13 @@ export default function ChatPanel({
   const load = useCallback(async () => {
     const supabase = createClient();
     const { data } = await supabase
-      .from('messages')
+      .from(table)
       .select('id, sender_id, body, created_at, sender:users!sender_id(name)')
-      .eq('claim_id', claimId)
+      .eq(scopeCol, scopeId)
       .order('created_at', { ascending: true });
     setMessages((data as unknown as Message[]) || []);
     setLoading(false);
-  }, [claimId]);
+  }, [table, scopeCol, scopeId]);
 
   useEffect(() => {
     load();
@@ -68,7 +74,7 @@ export default function ChatPanel({
     setMessages((prev) => [...prev, optimistic]);
     setDraft('');
     const supabase = createClient();
-    const { error } = await supabase.from('messages').insert({ claim_id: claimId, sender_id: currentUserId, body });
+    const { error } = await supabase.from(table).insert({ [scopeCol]: scopeId, sender_id: currentUserId, body });
     if (error) {
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       setDraft(body);

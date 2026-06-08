@@ -151,11 +151,12 @@ export default function ProfilePage() {
                 </div>
               </Link>
 
-              <Link href="/settings" className="w-full flex items-center justify-between p-4 bg-surface-container-lowest border border-outline-variant rounded-xl hover:bg-surface-container-low transition-colors text-left">
+              <Link href="/preferences" className="w-full flex items-center justify-between p-4 bg-surface-container-lowest border border-outline-variant rounded-xl hover:bg-surface-container-low transition-colors text-left">
                 <div className="flex items-center gap-3">
                   <Settings size={20} className="text-on-surface-variant" />
                   <span className="font-semibold text-on-surface">Preferences</span>
                 </div>
+                <ChevronRight size={18} className="text-on-surface-variant" />
               </Link>
             </div>
 

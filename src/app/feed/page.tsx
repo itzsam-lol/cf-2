@@ -60,7 +60,14 @@ export default function FeedPage() {
         if (error) throw error;
 
         if (itemsData) {
-          const mappedItems: ItemCardProps[] = itemsData.map((item: any) => {
+          // Returned items stay in the active feed for 24h (the dispute
+          // window), then drop off.
+          const RETURN_WINDOW_MS = 24 * 60 * 60 * 1000;
+          const visibleItems = itemsData.filter((item: any) =>
+            item.status !== 'claimed' ||
+            (item.returned_at && Date.now() - new Date(item.returned_at).getTime() < RETURN_WINDOW_MS)
+          );
+          const mappedItems: ItemCardProps[] = visibleItems.map((item: any) => {
             let tags: {label: string, value: string}[] = [];
             if (item.ai_tags && typeof item.ai_tags === 'object') {
               const aiTags = item.ai_tags;

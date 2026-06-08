@@ -24,6 +24,13 @@ export async function sendOtpEmail(to: string, code: string, institutionName: st
     throw new Error('RESEND_API_KEY is not configured');
   }
 
+  // The sender MUST be an address on a domain you've verified in Resend to
+  // deliver to real recipients. The default `onboarding@resend.dev` is Resend's
+  // sandbox sender and ONLY delivers to your own Resend account email — so set
+  // OTP_FROM_EMAIL (e.g. "CampusFind <noreply@yourdomain.com>") in production
+  // once your domain is verified.
+  const from = process.env.OTP_FROM_EMAIL || 'CampusFind <onboarding@resend.dev>';
+
   const res = await fetch(RESEND_API_URL, {
     method: 'POST',
     headers: {
@@ -31,7 +38,7 @@ export async function sendOtpEmail(to: string, code: string, institutionName: st
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'CampusFind <onboarding@resend.dev>',
+      from,
       to,
       subject: `${code} is your CampusFind verification code`,
       html: otpEmailHtml(code, institutionName),
@@ -40,6 +47,9 @@ export async function sendOtpEmail(to: string, code: string, institutionName: st
 
   if (!res.ok) {
     const body = await res.text();
+    // Surface Resend's reason in server logs so misconfiguration (unverified
+    // domain / sandbox sender) is obvious.
+    console.error(`Resend delivery failed (${res.status}) from="${from}" to="${to}": ${body}`);
     throw new Error(`Resend API error (${res.status}): ${body}`);
   }
 }

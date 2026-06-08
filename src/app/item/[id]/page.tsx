@@ -1,6 +1,6 @@
 'use client';
 
-import { Shield, Clock, MapPin, User, ArrowLeft, Search, Loader2, Pencil, Trash2, X, CheckCircle2, MessageCircle, KeyRound, ScanLine, QrCode } from 'lucide-react';
+import { Shield, Clock, MapPin, User, ArrowLeft, Search, Loader2, Pencil, Trash2, X, CheckCircle2, MessageCircle, KeyRound, ScanLine, QrCode, Flag } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState, use, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -24,6 +24,7 @@ interface ItemData {
   ai_tags: Record<string, unknown> | null;
   reporter_id: string;
   secret_hint: string | null;
+  returned_at: string | null;
   reporter: { name: string; email: string } | null;
 }
 
@@ -37,6 +38,21 @@ interface ClaimRow {
   created_at: string;
   claimant?: { name: string } | null;
 }
+
+interface DisputeRow {
+  id: string;
+  status: string;
+  reason: string;
+  reporter_id: string;
+  receiver_id: string | null;
+  finder_id: string;
+  created_at: string;
+  reporter?: { name: string } | null;
+  receiver?: { name: string } | null;
+  finder?: { name: string } | null;
+}
+
+const RETURN_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const CATEGORIES = ['Electronics', 'Identification', 'Personal Items', 'Documents', 'Keys'];
 
@@ -52,6 +68,8 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
   const [editing, setEditing] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [disputes, setDisputes] = useState<DisputeRow[]>([]);
+  const [reporting, setReporting] = useState(false);
 
   const isOwner = !!item && !!userId && item.reporter_id === userId;
   const isHighValue = item?.ai_tags && typeof item.ai_tags === 'object' && 'high_value' in item.ai_tags
@@ -104,6 +122,14 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
           setMyToken(null);
         }
       }
+
+      // Disputes on this item that the viewer can see (participant or admin).
+      const { data: disputeRows } = await supabase
+        .from('claim_disputes')
+        .select('id, status, reason, reporter_id, receiver_id, finder_id, created_at, reporter:users!reporter_id(name), receiver:users!receiver_id(name), finder:users!finder_id(name)')
+        .eq('item_id', id)
+        .order('created_at', { ascending: false });
+      setDisputes((disputeRows as unknown as DisputeRow[]) || []);
     }
     setLoading(false);
   }, [id]);
@@ -141,6 +167,14 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
     }
   };
 
+  const closeDispute = async (disputeId: string) => {
+    const res = await fetch(`/api/disputes/${disputeId}/close`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) { toast.error(data?.error || 'Failed to close dispute'); return; }
+    toast.success('Dispute resolved — transaction finalized.');
+    load();
+  };
+
   const getRelativeTime = (dateString: string) => {
     const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
     const deltaSeconds = Math.round((new Date(dateString).getTime() - Date.now()) / 1000);
@@ -175,6 +209,13 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
        aiTags.color && { label: 'Color', value: String(aiTags.color) },
        aiTags.brand && { label: 'Brand', value: String(aiTags.brand) }].filter(Boolean) as { label: string; value: string }[]
     : [];
+
+  const returnedAtMs = item.returned_at ? new Date(item.returned_at).getTime() : null;
+  const withinReturnWindow = returnedAtMs !== null && now - returnedAtMs < RETURN_WINDOW_MS;
+  const iAmReceiver = !!myClaim && myClaim.status === 'approved';
+  const alreadyReported = disputes.some((d) => d.reporter_id === userId);
+  const canReport = !!userId && item.status === 'claimed' && withinReturnWindow && !isOwner && !iAmReceiver && !alreadyReported;
+  const windowHoursLeft = returnedAtMs !== null ? Math.max(0, Math.ceil((RETURN_WINDOW_MS - (now - returnedAtMs)) / (60 * 60 * 1000))) : 0;
 
   return (
     <div className="bg-surface text-on-surface antialiased min-h-screen flex flex-col relative pb-24">
@@ -254,6 +295,54 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
               <div><p className="text-xs text-on-surface-variant uppercase tracking-wider mb-0.5">Reported By</p><p className="text-base font-medium">{item.reporter?.name || 'Anonymous'}</p></div>
             </div>
           </section>
+
+          {/* Returned banner + report-this-claim (24h window) */}
+          {item.status === 'claimed' && item.returned_at && (
+            <section className={`rounded-xl p-4 border ${withinReturnWindow ? 'bg-success/5 border-success/20' : 'bg-surface-container-low border-border'}`}>
+              <div className="flex items-start gap-3">
+                <CheckCircle2 size={20} className="text-success mt-0.5 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-on-surface">Item returned {getRelativeTime(item.returned_at)}</p>
+                  {withinReturnWindow ? (
+                    <p className="text-xs text-on-surface-variant mt-0.5">
+                      This post stays visible for ~{windowHoursLeft}h. If the wrong person received this item, you can report it during this window.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-on-surface-variant mt-0.5">The reporting window has closed and this return is final.</p>
+                  )}
+                  {canReport && (
+                    <button onClick={() => setReporting(true)} className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-error/40 text-error text-xs font-semibold hover:bg-error/5">
+                      <Flag size={14} /> Report this claim
+                    </button>
+                  )}
+                  {alreadyReported && <p className="text-xs text-error mt-2 font-semibold">You’ve reported this return — see the dispute below.</p>}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Dispute threads (visible to participants and admins) */}
+          {disputes.map((d) => (
+            <section key={d.id} className="rounded-xl border border-error/30 bg-error/5 p-4 space-y-3">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2"><Flag size={16} className="text-error" /><h3 className="text-sm font-semibold text-on-surface">Disputed return</h3></div>
+                <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${d.status === 'open' ? 'bg-error/15 text-error' : 'bg-success/15 text-success'}`}>{d.status}</span>
+              </div>
+              <p className="text-xs text-on-surface-variant">
+                Reported by <span className="font-semibold">{d.reporter?.name || 'a student'}</span> · finder <span className="font-semibold">{d.finder?.name || '—'}</span> · received by <span className="font-semibold">{d.receiver?.name || '—'}</span>
+              </p>
+              <p className="text-sm text-on-surface bg-surface-container-lowest rounded-lg p-3 border border-border">&ldquo;{d.reason}&rdquo;</p>
+              <div className="h-[320px]">
+                <ChatPanel disputeId={d.id} currentUserId={userId!} readOnly={d.status === 'closed'} />
+              </div>
+              {d.finder_id === userId && d.status === 'open' && (
+                <button onClick={() => closeDispute(d.id)} className="w-full py-2.5 rounded-lg bg-primary text-on-primary text-sm font-semibold hover:bg-primary-container">
+                  Resolve &amp; finalize transaction
+                </button>
+              )}
+              {d.status === 'closed' && <p className="text-xs text-success font-semibold text-center">Resolved by the finder — transaction finalized.</p>}
+            </section>
+          ))}
 
           {/* Owner: their private secret */}
           {isOwner && item.secret_hint && (
@@ -351,7 +440,60 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
           onReleased={() => { setScanning(false); load(); }}
         />
       )}
+
+      <AnimatePresence>
+        {reporting && (
+          <ReportDisputeModal itemId={id} onClose={() => setReporting(false)} onFiled={() => { setReporting(false); load(); }} />
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+function ReportDisputeModal({ itemId, onClose, onFiled }: { itemId: string; onClose: () => void; onFiled: () => void }) {
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async () => {
+    if (reason.trim().length < 10) { toast.error('Please add a bit more detail (at least 10 characters).'); return; }
+    setSubmitting(true);
+    const res = await fetch('/api/disputes/create', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemId, reason }),
+    });
+    const data = await res.json();
+    setSubmitting(false);
+    if (!res.ok) { toast.error(data?.error || 'Failed to file report'); return; }
+    toast.success('Report filed — a dispute chat is now open.');
+    onFiled();
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-on-background/60 backdrop-blur-sm">
+      <motion.div initial={{ scale: 0.96, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 16 }} className="bg-surface w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col">
+        <div className="px-5 py-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-lowest">
+          <h3 className="text-lg font-semibold flex items-center gap-2"><Flag size={18} className="text-error" /> Report this claim</h3>
+          <button onClick={onClose} className="text-on-surface-variant hover:text-error p-1"><X size={20} /></button>
+        </div>
+        <div className="p-5 space-y-3">
+          <p className="text-sm text-on-surface-variant">
+            If you believe the wrong person received this item, describe what happened. This opens a private chat with the finder and the person who received it so it can be sorted out.
+          </p>
+          <textarea
+            rows={4} value={reason} onChange={(e) => setReason(e.target.value)}
+            placeholder="e.g. This is my laptop — I never received it, and the photo matches the one I lost in Block C…"
+            className="edit-input resize-none"
+          />
+          <p className="text-xs text-on-surface-variant">False or abusive reports are tied to your verified campus identity and visible to admins.</p>
+        </div>
+        <div className="px-5 py-4 border-t border-outline-variant flex gap-3 bg-surface-container-lowest">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-lg border border-outline-variant font-semibold hover:bg-surface-container-low">Cancel</button>
+          <button onClick={submit} disabled={submitting} className="flex-1 py-2.5 rounded-lg bg-error text-on-error font-semibold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2">
+            {submitting && <Loader2 size={16} className="animate-spin" />} File report
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 

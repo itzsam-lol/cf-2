@@ -1,12 +1,11 @@
 'use client';
 
-import { ArrowLeft, Lock, HelpCircle, LogOut, Trash2, Bell, BellOff, User, Palette } from 'lucide-react';
+import { ArrowLeft, Lock, HelpCircle, LogOut, Trash2, User, Palette, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
-import ThemeToggle from '@/components/ThemeToggle';
 
 const ROLE_LABELS: Record<string, string> = {
   student: 'Standard Node',
@@ -16,10 +15,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function SettingsPage() {
   const router = useRouter();
-  const [toggleAiMatch, setToggleAiMatch] = useState(true);
-  const [toggleAdminDesk, setToggleAdminDesk] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [isClearingCache, setIsClearingCache] = useState(false);
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
@@ -49,22 +45,6 @@ export default function SettingsPage() {
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push('/login');
-  };
-
-  const handleClearCache = async () => {
-    setIsClearingCache(true);
-    try {
-      if ('caches' in window) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map((key) => caches.delete(key)));
-      }
-      toast.success('Offline cache cleared');
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to clear cache');
-    } finally {
-      setIsClearingCache(false);
-    }
   };
 
   return (
@@ -116,86 +96,19 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Module: Appearance / Preferences */}
+        {/* Preferences link */}
         <section className="flex flex-col gap-4">
           <h2 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Preferences</h2>
-          <div className="bg-surface-container-lowest rounded-xl border border-border p-6 flex items-center justify-between shadow-[0_1px_3px_0_rgba(0,0,0,0.05)]">
+          <Link href="/preferences" className="bg-surface-container-lowest rounded-xl border border-border p-6 flex items-center justify-between shadow-[0_1px_3px_0_rgba(0,0,0,0.05)] hover:bg-surface-container-low transition-colors">
             <div className="flex items-center gap-3">
               <Palette size={20} className="text-primary shrink-0" />
               <div className="flex flex-col">
-                <span className="text-base font-semibold">Appearance</span>
-                <span className="text-sm text-on-surface-variant">Switch between light and dark mode.</span>
+                <span className="text-base font-semibold">Appearance &amp; notifications</span>
+                <span className="text-sm text-on-surface-variant">Theme, alerts and offline storage.</span>
               </div>
             </div>
-            <ThemeToggle />
-          </div>
-        </section>
-
-        {/* Module 2: Notification Management */}
-        <section className="flex flex-col gap-4">
-          <h2 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Notification Management</h2>
-          <div className="bg-surface-container-lowest rounded-xl border border-border flex flex-col shadow-[0_1px_3px_0_rgba(0,0,0,0.05)]">
-            {/* Toggle 1: AI Match */}
-            <div className="flex items-center justify-between p-6 border-b border-border">
-              <div className="flex items-center gap-3">
-                <Bell size={20} className="text-primary shrink-0" />
-                <div className="flex flex-col">
-                  <span className="text-base font-semibold">Instant AI Match Alert</span>
-                  <span className="text-sm text-on-surface-variant">Get notified immediately when AI finds a potential match.</span>
-                </div>
-              </div>
-              <button
-                onClick={() => setToggleAiMatch(!toggleAiMatch)}
-                className={`relative inline-flex h-6 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                  toggleAiMatch ? 'bg-primary-container' : 'bg-surface-container'
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    toggleAiMatch ? 'translate-x-6' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </div>
-            {/* Toggle 2: Admin Desk */}
-            <div className="flex items-center justify-between p-6">
-              <div className="flex items-center gap-3">
-                <BellOff size={20} className="text-outline shrink-0" />
-                <div className="flex flex-col">
-                  <span className="text-base font-semibold">Claim &amp; chat updates</span>
-                  <span className="text-sm text-on-surface-variant">Updates when someone claims your item or sends a message.</span>
-                </div>
-              </div>
-              <button
-                onClick={() => setToggleAdminDesk(!toggleAdminDesk)}
-                className={`relative inline-flex h-6 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                  toggleAdminDesk ? 'bg-primary-container' : 'bg-surface-container'
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    toggleAdminDesk ? 'translate-x-6' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {/* Module 3: Storage */}
-        <section className="flex flex-col gap-4">
-          <h2 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Storage</h2>
-          <button
-            onClick={handleClearCache}
-            disabled={isClearingCache}
-            className="w-full bg-surface-container-lowest rounded-xl border border-border p-6 flex items-center justify-between shadow-[0_1px_3px_0_rgba(0,0,0,0.05)] hover:bg-surface-container-low transition-colors duration-200 cursor-pointer disabled:opacity-50 text-left"
-          >
-            <div className="flex items-center gap-6 text-secondary">
-              <Trash2 size={24} />
-              <span className="text-base font-semibold">Clear Offline Assets Cached Memory</span>
-            </div>
-            <span className="text-sm text-on-surface-variant">{isClearingCache ? 'Clearing…' : 'Clear'}</span>
-          </button>
+            <ChevronRight size={20} className="text-on-surface-variant" />
+          </Link>
         </section>
 
         {/* Danger Zone */}

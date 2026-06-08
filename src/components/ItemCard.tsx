@@ -67,6 +67,10 @@ export default function ItemCard({
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#fffbeb] text-[#d97706]">
               Lost
             </span>
+          ) : status === 'claimed' ? (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success/15 text-success">
+              Returned
+            </span>
           ) : (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-secondary-container text-on-secondary-container">
               Found
