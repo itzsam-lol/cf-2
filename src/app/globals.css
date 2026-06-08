@@ -2,11 +2,130 @@
 
 /* ============================================================
    CampusFind Design System — Stitch Tokens (Tailwind v4)
+   Themeable: every color utility references a --cf-* variable so a
+   `.dark` class on <html> can override the whole palette.
    ============================================================ */
 
 :root {
-  --background: #ffffff;
-  --foreground: #131b2e;
+  /* ── Light palette (default) ── */
+  --cf-background: #ffffff;
+  --cf-foreground: #131b2e;
+
+  --cf-primary: #00236f;
+  --cf-primary-container: #1e3a8a;
+  --cf-primary-fixed: #dce1ff;
+  --cf-primary-fixed-dim: #b6c4ff;
+  --cf-on-primary: #ffffff;
+  --cf-on-primary-container: #90a8ff;
+  --cf-on-primary-fixed: #00164e;
+  --cf-on-primary-fixed-variant: #264191;
+  --cf-inverse-primary: #b6c4ff;
+
+  --cf-secondary: #515f74;
+  --cf-secondary-container: #d5e3fc;
+  --cf-secondary-fixed: #d5e3fc;
+  --cf-secondary-fixed-dim: #b9c7df;
+  --cf-on-secondary: #ffffff;
+  --cf-on-secondary-container: #57657a;
+  --cf-on-secondary-fixed: #0d1c2e;
+  --cf-on-secondary-fixed-variant: #3a485b;
+
+  --cf-tertiary: #272b2d;
+  --cf-tertiary-container: #3d4143;
+  --cf-tertiary-fixed: #e0e3e5;
+  --cf-tertiary-fixed-dim: #c4c7c9;
+  --cf-on-tertiary: #ffffff;
+  --cf-on-tertiary-container: #aaadaf;
+  --cf-on-tertiary-fixed: #191c1e;
+  --cf-on-tertiary-fixed-variant: #444749;
+
+  --cf-surface: #F8FAFC;
+  --cf-surface-bright: #faf8ff;
+  --cf-surface-dim: #d2d9f4;
+  --cf-surface-tint: #4059aa;
+  --cf-surface-variant: #dae2fd;
+  --cf-surface-container: #eaedff;
+  --cf-surface-container-low: #f2f3ff;
+  --cf-surface-container-high: #e2e7ff;
+  --cf-surface-container-highest: #dae2fd;
+  --cf-surface-container-lowest: #ffffff;
+  --cf-on-surface: #131b2e;
+  --cf-on-surface-variant: #444651;
+  --cf-on-background: #131b2e;
+  --cf-inverse-surface: #283044;
+  --cf-inverse-on-surface: #eef0ff;
+
+  --cf-border: #E2E8F0;
+  --cf-outline: #757682;
+  --cf-outline-variant: #c5c5d3;
+
+  --cf-success: #10B981;
+  --cf-warning: #F59E0B;
+  --cf-critical: #E11D48;
+  --cf-error: #ba1a1a;
+  --cf-error-container: #ffdad6;
+  --cf-on-error: #ffffff;
+  --cf-on-error-container: #93000a;
+
+  --background: var(--cf-background);
+  --foreground: var(--cf-foreground);
+}
+
+/* ── Dark palette ── */
+.dark {
+  --cf-background: #0b1020;
+  --cf-foreground: #e7eaf3;
+
+  --cf-primary: #6d8cff;
+  --cf-primary-container: #2a3f86;
+  --cf-primary-fixed: #21305f;
+  --cf-primary-fixed-dim: #2a3f86;
+  --cf-on-primary: #ffffff;
+  --cf-on-primary-container: #dce4ff;
+  --cf-on-primary-fixed: #dce4ff;
+  --cf-on-primary-fixed-variant: #b6c4ff;
+  --cf-inverse-primary: #00236f;
+
+  --cf-secondary: #9fb0cc;
+  --cf-secondary-container: #2a3346;
+  --cf-secondary-fixed: #2a3346;
+  --cf-secondary-fixed-dim: #3a485b;
+  --cf-on-secondary: #0b1020;
+  --cf-on-secondary-container: #c9d6ee;
+  --cf-on-secondary-fixed: #dbe6fb;
+  --cf-on-secondary-fixed-variant: #b9c7df;
+
+  --cf-tertiary: #c4c7c9;
+  --cf-tertiary-container: #3d4143;
+  --cf-tertiary-fixed: #3d4143;
+  --cf-tertiary-fixed-dim: #2a2d2f;
+  --cf-on-tertiary: #0b1020;
+  --cf-on-tertiary-container: #e0e3e5;
+  --cf-on-tertiary-fixed: #e0e3e5;
+  --cf-on-tertiary-fixed-variant: #c4c7c9;
+
+  --cf-surface: #0e1424;
+  --cf-surface-bright: #1a2238;
+  --cf-surface-dim: #080c18;
+  --cf-surface-tint: #6d8cff;
+  --cf-surface-variant: #1b2236;
+  --cf-surface-container: #141b2e;
+  --cf-surface-container-low: #111728;
+  --cf-surface-container-high: #1d2540;
+  --cf-surface-container-highest: #232c49;
+  --cf-surface-container-lowest: #090d19;
+  --cf-on-surface: #e7eaf3;
+  --cf-on-surface-variant: #a9b1c7;
+  --cf-on-background: #e7eaf3;
+  --cf-inverse-surface: #e7eaf3;
+  --cf-inverse-on-surface: #1b2236;
+
+  --cf-border: #28304a;
+  --cf-outline: #6b7493;
+  --cf-outline-variant: #2b3450;
+
+  --cf-error-container: #5c1410;
+  --cf-on-error-container: #ffdad6;
 }
 
 @theme inline {
@@ -14,73 +133,65 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  /* ── Color System (from Stitch Design System) ── */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 
-  /* Primary Palette */
-  --color-primary: #00236f;
-  --color-primary-container: #1e3a8a;
-  --color-primary-fixed: #dce1ff;
-  --color-primary-fixed-dim: #b6c4ff;
-  --color-on-primary: #ffffff;
-  --color-on-primary-container: #90a8ff;
-  --color-on-primary-fixed: #00164e;
-  --color-on-primary-fixed-variant: #264191;
-  --color-inverse-primary: #b6c4ff;
+  --color-primary: var(--cf-primary);
+  --color-primary-container: var(--cf-primary-container);
+  --color-primary-fixed: var(--cf-primary-fixed);
+  --color-primary-fixed-dim: var(--cf-primary-fixed-dim);
+  --color-on-primary: var(--cf-on-primary);
+  --color-on-primary-container: var(--cf-on-primary-container);
+  --color-on-primary-fixed: var(--cf-on-primary-fixed);
+  --color-on-primary-fixed-variant: var(--cf-on-primary-fixed-variant);
+  --color-inverse-primary: var(--cf-inverse-primary);
 
-  /* Secondary Palette */
-  --color-secondary: #515f74;
-  --color-secondary-container: #d5e3fc;
-  --color-secondary-fixed: #d5e3fc;
-  --color-secondary-fixed-dim: #b9c7df;
-  --color-on-secondary: #ffffff;
-  --color-on-secondary-container: #57657a;
-  --color-on-secondary-fixed: #0d1c2e;
-  --color-on-secondary-fixed-variant: #3a485b;
+  --color-secondary: var(--cf-secondary);
+  --color-secondary-container: var(--cf-secondary-container);
+  --color-secondary-fixed: var(--cf-secondary-fixed);
+  --color-secondary-fixed-dim: var(--cf-secondary-fixed-dim);
+  --color-on-secondary: var(--cf-on-secondary);
+  --color-on-secondary-container: var(--cf-on-secondary-container);
+  --color-on-secondary-fixed: var(--cf-on-secondary-fixed);
+  --color-on-secondary-fixed-variant: var(--cf-on-secondary-fixed-variant);
 
-  /* Tertiary Palette */
-  --color-tertiary: #272b2d;
-  --color-tertiary-container: #3d4143;
-  --color-tertiary-fixed: #e0e3e5;
-  --color-tertiary-fixed-dim: #c4c7c9;
-  --color-on-tertiary: #ffffff;
-  --color-on-tertiary-container: #aaadaf;
-  --color-on-tertiary-fixed: #191c1e;
-  --color-on-tertiary-fixed-variant: #444749;
+  --color-tertiary: var(--cf-tertiary);
+  --color-tertiary-container: var(--cf-tertiary-container);
+  --color-tertiary-fixed: var(--cf-tertiary-fixed);
+  --color-tertiary-fixed-dim: var(--cf-tertiary-fixed-dim);
+  --color-on-tertiary: var(--cf-on-tertiary);
+  --color-on-tertiary-container: var(--cf-on-tertiary-container);
+  --color-on-tertiary-fixed: var(--cf-on-tertiary-fixed);
+  --color-on-tertiary-fixed-variant: var(--cf-on-tertiary-fixed-variant);
 
-  /* Surface Palette */
-  --color-surface: #F8FAFC;
-  --color-surface-bright: #faf8ff;
-  --color-surface-dim: #d2d9f4;
-  --color-surface-tint: #4059aa;
-  --color-surface-variant: #dae2fd;
-  --color-surface-container: #eaedff;
-  --color-surface-container-low: #f2f3ff;
-  --color-surface-container-high: #e2e7ff;
-  --color-surface-container-highest: #dae2fd;
-  --color-surface-container-lowest: #ffffff;
-  --color-on-surface: #131b2e;
-  --color-on-surface-variant: #444651;
-  --color-on-background: #131b2e;
-  --color-inverse-surface: #283044;
-  --color-inverse-on-surface: #eef0ff;
+  --color-surface: var(--cf-surface);
+  --color-surface-bright: var(--cf-surface-bright);
+  --color-surface-dim: var(--cf-surface-dim);
+  --color-surface-tint: var(--cf-surface-tint);
+  --color-surface-variant: var(--cf-surface-variant);
+  --color-surface-container: var(--cf-surface-container);
+  --color-surface-container-low: var(--cf-surface-container-low);
+  --color-surface-container-high: var(--cf-surface-container-high);
+  --color-surface-container-highest: var(--cf-surface-container-highest);
+  --color-surface-container-lowest: var(--cf-surface-container-lowest);
+  --color-on-surface: var(--cf-on-surface);
+  --color-on-surface-variant: var(--cf-on-surface-variant);
+  --color-on-background: var(--cf-on-background);
+  --color-inverse-surface: var(--cf-inverse-surface);
+  --color-inverse-on-surface: var(--cf-inverse-on-surface);
 
-  /* Borders & Outlines */
-  --color-border: #E2E8F0;
-  --color-outline: #757682;
-  --color-outline-variant: #c5c5d3;
+  --color-border: var(--cf-border);
+  --color-outline: var(--cf-outline);
+  --color-outline-variant: var(--cf-outline-variant);
 
-  /* Status Colors */
-  --color-success: #10B981;
-  --color-warning: #F59E0B;
-  --color-critical: #E11D48;
-  --color-error: #ba1a1a;
-  --color-error-container: #ffdad6;
-  --color-on-error: #ffffff;
-  --color-on-error-container: #93000a;
+  --color-success: var(--cf-success);
+  --color-warning: var(--cf-warning);
+  --color-critical: var(--cf-critical);
+  --color-error: var(--cf-error);
+  --color-error-container: var(--cf-error-container);
+  --color-on-error: var(--cf-on-error);
+  --color-on-error-container: var(--cf-on-error-container);
 
-  /* Campus Accents */
   --color-iiitd-navy: #022742;
   --color-iiitd-teal: #3FADA8;
 
@@ -119,63 +230,58 @@
 }
 
 /* ── Global Base Styles ── */
+html { color-scheme: light; }
+html.dark { color-scheme: dark; }
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), 'Geist', system-ui, sans-serif;
   min-height: 100dvh;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* ── Scrollbar Utilities ── */
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
 /* ── Safe Area Padding ── */
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 12px);
-}
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 12px); }
 
 /* ── Masonry Grid ── */
-.masonry-grid {
-  column-count: 1;
-  column-gap: 24px;
-}
-@media (min-width: 768px) {
-  .masonry-grid {
-    column-count: 2;
-  }
-}
-.masonry-item {
-  break-inside: avoid;
-  margin-bottom: 24px;
-}
+.masonry-grid { column-count: 1; column-gap: 24px; }
+@media (min-width: 768px) { .masonry-grid { column-count: 2; } }
+.masonry-item { break-inside: avoid; margin-bottom: 24px; }
 
 /* ── Glassmorphism ── */
 .glassmorphism {
-  background: rgba(255, 255, 255, 0.7);
+  background: color-mix(in srgb, var(--cf-surface) 70%, transparent);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
 
-/* ── Blur Overlay for High-Value Items ── */
-.blur-overlay {
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  background: rgba(255, 255, 255, 0.4);
-}
-
 /* ── Step Transitions ── */
-.step-transition {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
+.step-transition { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 
-/* ── Smooth Hover Animations ── */
 @keyframes subtle-float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-2px); }
+}
+
+/* ── Shared edit form input ── */
+.edit-input {
+  width: 100%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 0.5rem;
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  color: var(--color-on-surface);
+  outline: none;
+}
+.edit-input:focus {
+  box-shadow: 0 0 0 2px var(--color-primary);
+  border-color: var(--color-primary);
 }

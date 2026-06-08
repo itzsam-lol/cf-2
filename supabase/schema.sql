@@ -386,6 +386,65 @@ ALTER TABLE otp_requests ENABLE ROW LEVEL SECURITY;
 -- service-role client inside the OTP API routes.
 
 -- ============================================================
+-- 13. FEATURE UPGRADE — private secret, AI claim scoring, chat
+--     (see feature_upgrade.sql for the standalone idempotent migration)
+-- ============================================================
+
+-- items: a private detail only the finder knows; never shown publicly.
+ALTER TABLE items ADD COLUMN IF NOT EXISTS secret_hint TEXT;
+
+-- items: let the reporter delete their own item.
+CREATE POLICY "Reporters delete own items"
+  ON items FOR DELETE TO authenticated
+  USING (reporter_id = auth.uid());
+
+-- claims: AI accuracy of the claimant's answer + the AI's short explanation.
+ALTER TABLE claims ADD COLUMN IF NOT EXISTS ai_match_score NUMERIC(5,2);
+ALTER TABLE claims ADD COLUMN IF NOT EXISTS ai_analysis TEXT;
+
+-- The finder (item reporter) — not just admins — can read & resolve claims
+-- on their own items (student-to-student resolution).
+CREATE POLICY "Reporters read claims on their items"
+  ON claims FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM items WHERE items.id = claims.item_id AND items.reporter_id = auth.uid()));
+
+CREATE POLICY "Reporters update claims on their items"
+  ON claims FOR UPDATE TO authenticated
+  USING (EXISTS (SELECT 1 FROM items WHERE items.id = claims.item_id AND items.reporter_id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM items WHERE items.id = claims.item_id AND items.reporter_id = auth.uid()));
+
+-- messages: claim-scoped chat between claimant and finder.
+CREATE TABLE messages (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  claim_id UUID REFERENCES claims(id) ON DELETE CASCADE NOT NULL,
+  sender_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  body TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX idx_messages_claim ON messages(claim_id, created_at);
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+
+CREATE OR REPLACE FUNCTION public.is_claim_participant(_claim_id uuid)
+RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM claims c JOIN items i ON i.id = c.item_id
+    WHERE c.id = _claim_id AND (c.claimant_id = auth.uid() OR i.reporter_id = auth.uid())
+  );
+$$;
+
+CREATE POLICY "Participants read claim messages"
+  ON messages FOR SELECT TO authenticated USING (public.is_claim_participant(claim_id));
+CREATE POLICY "Participants send claim messages"
+  ON messages FOR INSERT TO authenticated WITH CHECK (sender_id = auth.uid() AND public.is_claim_participant(claim_id));
+CREATE POLICY "Admins read messages in institution"
+  ON messages FOR SELECT TO authenticated
+  USING (EXISTS (
+    SELECT 1 FROM claims c JOIN items i ON i.id = c.item_id
+    WHERE c.id = messages.claim_id AND i.institution_id = public.get_auth_user_institution()
+      AND (public.get_auth_user_role() = 'campus_admin' OR public.get_auth_user_role() = 'super_admin')
+  ));
+
+-- ============================================================
 -- 12. SEED DATA
 -- ============================================================
 

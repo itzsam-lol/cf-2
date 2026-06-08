@@ -1,42 +1,42 @@
 'use client';
 
 import { useState, use } from 'react';
-import { Camera, AlertCircle, ArrowLeft, Send, Loader2, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Camera, AlertCircle, ArrowLeft, Send, Loader2, ShieldCheck, CheckCircle2, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { createClient } from '@/lib/supabase/client';
+import AccuracyMeter from '@/components/AccuracyMeter';
 
 export default function ClaimPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [proof, setProof] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [score, setScore] = useState<number | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!proof) return;
+    if (!proof.trim()) return;
 
     setIsSubmitting(true);
     try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        toast.error('You must be logged in to claim an item.');
-        return;
-      }
-
-      const { error } = await supabase.from('claims').insert({
-        item_id: id,
-        claimant_id: user.id,
-        verification_proof: proof,
-        status: 'pending'
+      const res = await fetch('/api/claims/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemId: id, proof }),
       });
-
-      if (error) throw error;
-
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 409) {
+          toast('You already filed a claim for this item.');
+          setIsSubmitted(true);
+          setScore(null);
+          return;
+        }
+        throw new Error(data?.error || 'Failed to submit claim');
+      }
+      setScore(typeof data.score === 'number' ? data.score : null);
       setIsSubmitted(true);
-      toast.success('Claim submitted successfully.');
+      toast.success('Claim submitted — AI verified your answer.');
     } catch (err: any) {
       toast.error(err.message || 'Failed to submit claim.');
     } finally {
@@ -56,17 +56,31 @@ export default function ClaimPage({ params }: { params: Promise<{ id: string }> 
           </div>
         </header>
 
-        <main className="flex-1 max-w-2xl mx-auto w-full px-4 md:px-6 py-12 flex flex-col items-center justify-center text-center">
+        <main className="flex-1 max-w-md mx-auto w-full px-4 md:px-6 py-12 flex flex-col items-center justify-center text-center">
           <div className="w-20 h-20 bg-success/10 rounded-full flex items-center justify-center mb-6">
             <CheckCircle2 size={40} className="text-success" />
           </div>
           <h2 className="text-3xl font-semibold text-on-surface mb-3">Claim Submitted</h2>
+          {score !== null && (
+            <div className="w-full bg-surface-container-lowest border border-border rounded-xl p-5 mb-6">
+              <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-3">AI match confidence</p>
+              <AccuracyMeter score={score} />
+              <p className="text-xs text-on-surface-variant mt-3">
+                The finder can see this score and will review your claim. Use chat to coordinate the handover.
+              </p>
+            </div>
+          )}
           <p className="text-base text-on-surface-variant mb-8 max-w-md">
-            Your verification proof has been securely transmitted to the campus administration. You will be notified once it has been reviewed.
+            The student who found this item has been notified. You can message them directly to arrange a safe handover on campus.
           </p>
-          <Link href="/feed" className="bg-primary hover:bg-primary-container text-on-primary font-semibold px-8 py-3 rounded-lg transition-colors">
-            Return to Ledger
-          </Link>
+          <div className="flex flex-col gap-3 w-full">
+            <Link href={`/item/${id}`} className="bg-primary hover:bg-primary-container text-on-primary font-semibold px-8 py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+              <MessageCircle size={18} /> Open chat &amp; track claim
+            </Link>
+            <Link href="/feed" className="text-on-surface-variant font-semibold px-8 py-3 rounded-lg hover:bg-surface-container-low transition-colors">
+              Return to Feed
+            </Link>
+          </div>
         </main>
       </div>
     );

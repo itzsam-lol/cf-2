@@ -25,14 +25,14 @@ export async function POST(request: Request) {
         {
           role: 'system',
           content:
-            'You are a precise inventory data extractor. Analyze the input text and output a clean, valid JSON object exactly in this format: { "category": "String", "brand": "String or null", "color": "String or null", "distinguishing_marks": ["String"] }. Do not include markdown formatting or explanation. Only return the JSON.',
+            'You are a precise lost-and-found inventory data extractor. Analyze the input text describing an item and output a clean, valid JSON object exactly in this format: { "category": "one of: Electronics, Identification, Personal Items, Documents, Keys", "brand": "String or null", "color": "String or null", "distinguishing_marks": ["String"] }. Pick the single closest category. Use null when a field is not mentioned. Do not include markdown formatting or explanation. Only return the JSON.',
         },
         {
           role: 'user',
           content: description,
         },
       ],
-      model: 'llama3-8b-8192',
+      model: 'llama-3.3-70b-versatile',
       temperature: 0.1,
       response_format: { type: 'json_object' },
     });

@@ -20,6 +20,7 @@ export default function ReportPage() {
   const [color, setColor] = useState('');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
+  const [secret, setSecret] = useState('');
   const [isHighValue, setIsHighValue] = useState(false);
   
   const [isProcessingAI, setIsProcessingAI] = useState(false);
@@ -131,6 +132,9 @@ export default function ReportPage() {
         category,
         image_url: uploadedUrl,
         location_found: location,
+        // Private detail only the finder knows — never shown publicly; the AI
+        // uses it to score how well a claimant's answer matches.
+        secret_hint: status === 'found' && secret.trim() ? secret.trim() : null,
         status
       }).select('id').single();
 
@@ -336,8 +340,30 @@ export default function ReportPage() {
                       </div>
                     </label>
 
+                    {status === 'found' && (
+                      <div className="space-y-1.5 p-4 border border-primary/30 rounded-lg bg-primary-fixed/40">
+                        <div className="flex items-center gap-2 mb-1">
+                          <ShieldCheck size={16} className="text-primary" />
+                          <label className="text-xs font-semibold text-on-surface uppercase tracking-wider">
+                            Private verification secret
+                          </label>
+                          <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">AI-protected</span>
+                        </div>
+                        <textarea
+                          rows={2}
+                          value={secret}
+                          onChange={(e) => setSecret(e.target.value)}
+                          placeholder="A detail only the real owner would know (e.g. 'cracked top-left corner', 'lock screen is a husky', sticker on the back)…"
+                          className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-3 text-sm text-on-surface focus:ring-2 focus:ring-primary outline-none resize-none"
+                        />
+                        <p className="text-xs text-on-surface-variant leading-relaxed">
+                          Never shown publicly. When someone claims this item, our AI compares their answer to your secret and gives you a match-accuracy score.
+                        </p>
+                      </div>
+                    )}
+
                     <div className="flex justify-between pt-4 mt-auto">
-                      <button 
+                      <button
                         onClick={() => setStep(1)}
                         className="px-6 py-2.5 rounded-lg font-semibold text-on-surface-variant border border-outline-variant hover:bg-surface-container-low transition-colors"
                       >

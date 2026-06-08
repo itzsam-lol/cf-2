@@ -1,11 +1,12 @@
 'use client';
 
-import { ArrowLeft, Lock, HelpCircle, LogOut, Trash2, Bell, BellOff, User } from 'lucide-react';
+import { ArrowLeft, Lock, HelpCircle, LogOut, Trash2, Bell, BellOff, User, Palette } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import ThemeToggle from '@/components/ThemeToggle';
 
 const ROLE_LABELS: Record<string, string> = {
   student: 'Standard Node',
@@ -115,6 +116,21 @@ export default function SettingsPage() {
           </div>
         </section>
 
+        {/* Module: Appearance / Preferences */}
+        <section className="flex flex-col gap-4">
+          <h2 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Preferences</h2>
+          <div className="bg-surface-container-lowest rounded-xl border border-border p-6 flex items-center justify-between shadow-[0_1px_3px_0_rgba(0,0,0,0.05)]">
+            <div className="flex items-center gap-3">
+              <Palette size={20} className="text-primary shrink-0" />
+              <div className="flex flex-col">
+                <span className="text-base font-semibold">Appearance</span>
+                <span className="text-sm text-on-surface-variant">Switch between light and dark mode.</span>
+              </div>
+            </div>
+            <ThemeToggle />
+          </div>
+        </section>
+
         {/* Module 2: Notification Management */}
         <section className="flex flex-col gap-4">
           <h2 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Notification Management</h2>
@@ -146,8 +162,8 @@ export default function SettingsPage() {
               <div className="flex items-center gap-3">
                 <BellOff size={20} className="text-outline shrink-0" />
                 <div className="flex flex-col">
-                  <span className="text-base font-semibold">Admin Desk Ledger Status Updates</span>
-                  <span className="text-sm text-on-surface-variant">Updates when items move to physical admin desk.</span>
+                  <span className="text-base font-semibold">Claim &amp; chat updates</span>
+                  <span className="text-sm text-on-surface-variant">Updates when someone claims your item or sends a message.</span>
                 </div>
               </div>
               <button
