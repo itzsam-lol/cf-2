@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { sendOtpEmail } from '@/lib/resend';
+import { findDemoAccount, getDemoOtpSecret } from '@/lib/demoAccounts';
 
 const COOLDOWN_MS = 45 * 1000;
 const MAX_PER_WINDOW = 6;
@@ -18,6 +19,16 @@ export async function POST(request: Request) {
     const normalizedEmail = email.trim().toLowerCase();
     if (!EMAIL_RE.test(normalizedEmail)) {
       return NextResponse.json({ error: 'Enter a valid email address' }, { status: 400 });
+    }
+
+    // Pre-seeded demo/reviewer accounts sign in with a fixed code entered on
+    // the same screen — but only when the operator has privately configured
+    // DEMO_OTP_SECRET (never committed). No email is sent, no rate-limit row
+    // touched. Without that env var these addresses fall through to the
+    // normal institutional-domain check below and are rejected like any
+    // other non-institutional address.
+    if (findDemoAccount(normalizedEmail) && getDemoOtpSecret()) {
+      return NextResponse.json({ sent: true });
     }
 
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
