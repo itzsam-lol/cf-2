@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Bell, BellOff, Palette, Trash2 } from 'lucide-react';
+import { ArrowLeft, Bell, BellOff, Palette, Trash2, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -79,6 +79,19 @@ export default function PreferencesPage() {
             </div>
             <span className="text-sm text-on-surface-variant">{clearing ? 'Clearing…' : 'Clear'}</span>
           </button>
+        </section>
+
+        {/* Legal */}
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Legal</h2>
+          <div className="bg-surface-container-lowest rounded-xl border border-border flex flex-col">
+            <Link href="/privacy" className="flex items-center justify-between p-5 border-b border-border hover:bg-surface-container-low transition-colors">
+              <span className="text-sm font-semibold">Privacy Policy</span><ChevronRight size={18} className="text-on-surface-variant" />
+            </Link>
+            <Link href="/terms" className="flex items-center justify-between p-5 hover:bg-surface-container-low transition-colors">
+              <span className="text-sm font-semibold">Terms of Service</span><ChevronRight size={18} className="text-on-surface-variant" />
+            </Link>
+          </div>
         </section>
       </main>
 

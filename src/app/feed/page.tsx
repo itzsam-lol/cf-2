@@ -19,6 +19,8 @@ export default function FeedPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All Items');
   const [activeStatus, setActiveStatus] = useState('All');
+  const [showFilters, setShowFilters] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [institutionName, setInstitutionName] = useState('CampusFind');
   const [institutionInitial, setInstitutionInitial] = useState('C');
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -33,9 +35,15 @@ export default function FeedPage() {
         if (user) {
           const { data: userData } = await supabase
             .from('users')
-            .select('institution_id, role, institutions(name)')
+            .select('institution_id, role, branch, institutions(name)')
             .eq('id', user.id)
             .single();
+
+          // Users who haven't completed onboarding are sent to fill it in.
+          if (userData && !userData.branch) {
+            window.location.href = '/onboarding';
+            return;
+          }
 
           if (userData?.role) setUserRole(userData.role);
 
@@ -105,12 +113,26 @@ export default function FeedPage() {
     fetchData();
   }, []);
 
-  const filteredItems = items.filter((item) => {
-    const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = activeCategory === 'All Items' || item.category === activeCategory;
-    const matchesStatus = activeStatus === 'All' || item.status.toLowerCase() === activeStatus.toLowerCase();
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
+  const filteredItems = items
+    .filter((item) => {
+      const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = activeCategory === 'All Items' || item.category === activeCategory;
+      const matchesStatus = activeStatus === 'All' || item.status.toLowerCase() === activeStatus.toLowerCase();
+      return matchesSearch && matchesCategory && matchesStatus;
+    })
+    .sort((a, b) => {
+      const da = new Date(a.createdAt).getTime();
+      const db = new Date(b.createdAt).getTime();
+      return sortOrder === 'newest' ? db - da : da - db;
+    });
+
+  const hasActiveFilters = !!searchQuery || activeCategory !== 'All Items' || activeStatus !== 'All' || sortOrder !== 'newest';
+  const resetFilters = () => {
+    setSearchQuery('');
+    setActiveCategory('All Items');
+    setActiveStatus('All');
+    setSortOrder('newest');
+  };
 
   return (
     <div className="bg-surface text-on-surface antialiased min-h-screen flex flex-col">
@@ -127,9 +149,6 @@ export default function FeedPage() {
             </h1>
           </div>
           <div className="flex items-center gap-1">
-            <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-colors text-on-surface-variant">
-              <Search size={20} />
-            </button>
             {(userRole === 'campus_admin' || userRole === 'super_admin') && (
               <Link
                 href="/admin"
@@ -159,10 +178,42 @@ export default function FeedPage() {
                 className="w-full pl-10 pr-4 py-2.5 bg-surface-container-lowest border border-outline-variant rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
               />
             </div>
-            <button className="px-3 py-2.5 bg-surface-container-low border border-outline-variant rounded-lg text-on-surface-variant hover:text-primary hover:border-primary transition-colors flex items-center justify-center">
+            <button
+              onClick={() => setShowFilters((v) => !v)}
+              aria-label="Filters"
+              className={`px-3 py-2.5 rounded-lg border transition-colors flex items-center justify-center ${
+                showFilters || hasActiveFilters
+                  ? 'bg-primary text-on-primary border-primary'
+                  : 'bg-surface-container-low border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary'
+              }`}
+            >
               <SlidersHorizontal size={18} />
             </button>
           </div>
+
+          {showFilters && (
+            <div className="mb-4 p-3 rounded-lg border border-outline-variant bg-surface-container-lowest flex flex-wrap items-center gap-3">
+              <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Sort</span>
+              <div className="flex p-1 bg-surface-container-low rounded-lg">
+                {(['newest', 'oldest'] as const).map((order) => (
+                  <button
+                    key={order}
+                    onClick={() => setSortOrder(order)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold capitalize transition-all ${
+                      sortOrder === order ? 'bg-surface shadow-sm text-on-surface' : 'text-on-surface-variant hover:text-on-surface'
+                    }`}
+                  >
+                    {order === 'newest' ? 'Newest first' : 'Oldest first'}
+                  </button>
+                ))}
+              </div>
+              {hasActiveFilters && (
+                <button onClick={resetFilters} className="ml-auto text-xs font-semibold text-primary hover:underline">
+                  Reset all
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="flex flex-col gap-3">
             <div className="flex overflow-x-auto no-scrollbar gap-2 pb-1">
@@ -243,13 +294,9 @@ export default function FeedPage() {
             <p className="text-sm text-on-surface-variant max-w-sm">
               We couldn't find any items matching your current filters. Try adjusting your search or category selection.
             </p>
-            {(searchQuery || activeCategory !== 'All Items' || activeStatus !== 'All') && (
-              <button 
-                onClick={() => {
-                  setSearchQuery('');
-                  setActiveCategory('All Items');
-                  setActiveStatus('All');
-                }}
+            {hasActiveFilters && (
+              <button
+                onClick={resetFilters}
                 className="mt-6 px-6 py-2 bg-primary-container text-on-primary-container rounded-lg text-sm font-semibold hover:bg-primary-fixed transition-colors"
               >
                 Clear all filters

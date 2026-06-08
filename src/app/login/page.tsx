@@ -173,7 +173,9 @@ function LoginContent() {
         return;
       }
       toast.success('Welcome back!');
-      window.location.href = '/feed';
+      // New users land on onboarding; returning (onboarded) users are bounced
+      // straight to the feed by the onboarding page itself.
+      window.location.href = '/onboarding';
     } catch (err) {
       console.error(err);
       setFormError('Network error. Please try again.');
@@ -188,7 +190,7 @@ function LoginContent() {
     if (error) {
       window.location.href = '/login?error=' + encodeURIComponent(error.message);
     } else {
-      window.location.href = '/feed';
+      window.location.href = '/onboarding';
     }
   };
 
@@ -390,9 +392,9 @@ function LoginContent() {
 
         {/* Footer Links */}
         <div className="flex gap-6 text-xs font-semibold text-on-surface-variant">
-          <Link href="#" className="hover:text-primary transition-colors">Privacy Policy</Link>
+          <Link href="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link>
           <span className="text-outline-variant">•</span>
-          <Link href="#" className="hover:text-primary transition-colors">Terms of Service</Link>
+          <Link href="/terms" className="hover:text-primary transition-colors">Terms of Service</Link>
         </div>
       </div>
     </div>

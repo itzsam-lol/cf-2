@@ -499,6 +499,13 @@ CREATE POLICY "Admins read dispute messages" ON dispute_messages FOR SELECT TO a
       AND (public.get_auth_user_role() = 'campus_admin' OR public.get_auth_user_role() = 'super_admin')));
 
 -- ============================================================
+-- 15. ONBOARDING PROFILE FIELDS
+--     (see feature_upgrade_3.sql)
+-- ============================================================
+ALTER TABLE users ADD COLUMN IF NOT EXISTS roll_number TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS branch TEXT;
+
+-- ============================================================
 -- 12. SEED DATA
 -- ============================================================
 
