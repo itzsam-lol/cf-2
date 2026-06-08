@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import AccuracyMeter from '@/components/AccuracyMeter';
 import ChatPanel from '@/components/ChatPanel';
+import BottomNav from '@/components/BottomNav';
 
 interface AdminClaim {
   id: string;
@@ -111,7 +112,7 @@ export default function AdminOversightPage() {
         </div>
       </nav>
 
-      <main className="flex-1 md:ml-72 p-6 max-w-5xl">
+      <main className="flex-1 md:ml-72 p-6 max-w-5xl pb-24 md:pb-6">
         {view === 'overview' && (
           <>
             <h1 className="text-3xl font-semibold mb-1">Overview</h1>
@@ -199,6 +200,8 @@ export default function AdminOversightPage() {
           </motion.div>
         </div>
       )}
+
+      <BottomNav />
     </div>
   );
 }
