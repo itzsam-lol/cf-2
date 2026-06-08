@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
-import { sendOtpEmail } from '@/lib/resend';
+import { sendOtpEmail } from '@/lib/brevo';
 import { findDemoAccount, getDemoOtpSecret } from '@/lib/demoAccounts';
 
 const COOLDOWN_MS = 45 * 1000;
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
     }
 
     // Supabase mints and tracks the OTP itself (expiry, single-use, etc.) —
-    // we just relay the raw code through our own branded email via Resend.
+    // we just relay the raw code through our own branded email via Brevo.
     const { data: linkData, error: linkError } = await serviceClient.auth.admin.generateLink({
       type: 'magiclink',
       email: normalizedEmail,
