@@ -1,26 +1,181 @@
 @import "tailwindcss";
 
+/* ============================================================
+   CampusFind Design System — Stitch Tokens (Tailwind v4)
+   ============================================================ */
+
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #131b2e;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* Core Font Stack */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* ── Color System (from Stitch Design System) ── */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  /* Primary Palette */
+  --color-primary: #00236f;
+  --color-primary-container: #1e3a8a;
+  --color-primary-fixed: #dce1ff;
+  --color-primary-fixed-dim: #b6c4ff;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #90a8ff;
+  --color-on-primary-fixed: #00164e;
+  --color-on-primary-fixed-variant: #264191;
+  --color-inverse-primary: #b6c4ff;
+
+  /* Secondary Palette */
+  --color-secondary: #515f74;
+  --color-secondary-container: #d5e3fc;
+  --color-secondary-fixed: #d5e3fc;
+  --color-secondary-fixed-dim: #b9c7df;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #57657a;
+  --color-on-secondary-fixed: #0d1c2e;
+  --color-on-secondary-fixed-variant: #3a485b;
+
+  /* Tertiary Palette */
+  --color-tertiary: #272b2d;
+  --color-tertiary-container: #3d4143;
+  --color-tertiary-fixed: #e0e3e5;
+  --color-tertiary-fixed-dim: #c4c7c9;
+  --color-on-tertiary: #ffffff;
+  --color-on-tertiary-container: #aaadaf;
+  --color-on-tertiary-fixed: #191c1e;
+  --color-on-tertiary-fixed-variant: #444749;
+
+  /* Surface Palette */
+  --color-surface: #F8FAFC;
+  --color-surface-bright: #faf8ff;
+  --color-surface-dim: #d2d9f4;
+  --color-surface-tint: #4059aa;
+  --color-surface-variant: #dae2fd;
+  --color-surface-container: #eaedff;
+  --color-surface-container-low: #f2f3ff;
+  --color-surface-container-high: #e2e7ff;
+  --color-surface-container-highest: #dae2fd;
+  --color-surface-container-lowest: #ffffff;
+  --color-on-surface: #131b2e;
+  --color-on-surface-variant: #444651;
+  --color-on-background: #131b2e;
+  --color-inverse-surface: #283044;
+  --color-inverse-on-surface: #eef0ff;
+
+  /* Borders & Outlines */
+  --color-border: #E2E8F0;
+  --color-outline: #757682;
+  --color-outline-variant: #c5c5d3;
+
+  /* Status Colors */
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-critical: #E11D48;
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  --color-on-error: #ffffff;
+  --color-on-error-container: #93000a;
+
+  /* Campus Accents */
+  --color-iiitd-navy: #022742;
+  --color-iiitd-teal: #3FADA8;
+
+  /* ── Spacing Scale ── */
+  --spacing-unit: 8px;
+  --spacing-space-xs: 8px;
+  --spacing-space-sm: 16px;
+  --spacing-space-md: 24px;
+  --spacing-space-lg: 32px;
+  --spacing-gutter: 24px;
+  --spacing-margin-mobile: 16px;
+  --spacing-margin-desktop: 40px;
+
+  /* ── Border Radius ── */
+  --radius-sm: 0.25rem;
+  --radius-DEFAULT: 0.5rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-full: 9999px;
+
+  /* ── Font Sizes ── */
+  --font-size-body-sm: 14px;
+  --font-size-body-sm--line-height: 20px;
+  --font-size-body-md: 16px;
+  --font-size-body-md--line-height: 24px;
+  --font-size-body-lg: 18px;
+  --font-size-body-lg--line-height: 28px;
+  --font-size-label-md: 12px;
+  --font-size-label-md--line-height: 16px;
+  --font-size-headline-md: 24px;
+  --font-size-headline-md--line-height: 32px;
+  --font-size-headline-lg: 32px;
+  --font-size-headline-lg--line-height: 40px;
+  --font-size-headline-xl: 40px;
+  --font-size-headline-xl--line-height: 48px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* ── Global Base Styles ── */
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), 'Geist', system-ui, sans-serif;
+  min-height: 100dvh;
+}
+
+/* ── Scrollbar Utilities ── */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ── Safe Area Padding ── */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 12px);
+}
+
+/* ── Masonry Grid ── */
+.masonry-grid {
+  column-count: 1;
+  column-gap: 24px;
+}
+@media (min-width: 768px) {
+  .masonry-grid {
+    column-count: 2;
+  }
+}
+.masonry-item {
+  break-inside: avoid;
+  margin-bottom: 24px;
+}
+
+/* ── Glassmorphism ── */
+.glassmorphism {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* ── Blur Overlay for High-Value Items ── */
+.blur-overlay {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* ── Step Transitions ── */
+.step-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Smooth Hover Animations ── */
+@keyframes subtle-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
 }

@@ -77,6 +77,25 @@ CREATE INDEX idx_claims_item ON claims(item_id);
 -- 6. ROW LEVEL SECURITY (RLS)
 -- ============================================================
 
+-- SECURITY DEFINER functions to prevent infinite recursion
+CREATE OR REPLACE FUNCTION public.get_auth_user_institution()
+RETURNS uuid
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT institution_id FROM users WHERE id = auth.uid();
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_auth_user_role()
+RETURNS user_role
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT role FROM users WHERE id = auth.uid();
+$$;
+
 -- INSTITUTIONS: public read for domain lookups during auth
 ALTER TABLE institutions ENABLE ROW LEVEL SECURITY;
 
@@ -96,11 +115,7 @@ CREATE POLICY "Users can read own record"
 CREATE POLICY "Users can read same institution"
   ON users FOR SELECT
   TO authenticated
-  USING (
-    institution_id = (
-      SELECT institution_id FROM users WHERE id = auth.uid()
-    )
-  );
+  USING (institution_id = public.get_auth_user_institution());
 
 CREATE POLICY "Users can insert own record"
   ON users FOR INSERT
@@ -119,19 +134,13 @@ ALTER TABLE items ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can read items from own institution"
   ON items FOR SELECT
   TO authenticated
-  USING (
-    institution_id = (
-      SELECT institution_id FROM users WHERE id = auth.uid()
-    )
-  );
+  USING (institution_id = public.get_auth_user_institution());
 
 CREATE POLICY "Users can insert items for own institution"
   ON items FOR INSERT
   TO authenticated
   WITH CHECK (
-    institution_id = (
-      SELECT institution_id FROM users WHERE id = auth.uid()
-    )
+    institution_id = public.get_auth_user_institution()
     AND reporter_id = auth.uid()
   );
 
@@ -140,6 +149,18 @@ CREATE POLICY "Users can update own items"
   TO authenticated
   USING (reporter_id = auth.uid())
   WITH CHECK (reporter_id = auth.uid());
+
+CREATE POLICY "Admins can update items in their institution"
+  ON items FOR UPDATE
+  TO authenticated
+  USING (
+    institution_id = public.get_auth_user_institution()
+    AND (public.get_auth_user_role() = 'campus_admin' OR public.get_auth_user_role() = 'super_admin')
+  )
+  WITH CHECK (
+    institution_id = public.get_auth_user_institution()
+    AND (public.get_auth_user_role() = 'campus_admin' OR public.get_auth_user_role() = 'super_admin')
+  );
 
 -- CLAIMS: users can read their own claims, insert claims
 ALTER TABLE claims ENABLE ROW LEVEL SECURITY;
@@ -154,8 +175,183 @@ CREATE POLICY "Users can insert claims"
   TO authenticated
   WITH CHECK (claimant_id = auth.uid());
 
+CREATE POLICY "Admins can read claims in their institution"
+  ON claims FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM items
+      WHERE items.id = claims.item_id 
+      AND items.institution_id = public.get_auth_user_institution()
+      AND (public.get_auth_user_role() = 'campus_admin' OR public.get_auth_user_role() = 'super_admin')
+    )
+  );
+
+CREATE POLICY "Admins can update claims in their institution"
+  ON claims FOR UPDATE
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM items
+      WHERE items.id = claims.item_id 
+      AND items.institution_id = public.get_auth_user_institution()
+      AND (public.get_auth_user_role() = 'campus_admin' OR public.get_auth_user_role() = 'super_admin')
+    )
+  );
+
 -- ============================================================
--- 7. SEED DATA
+-- 7. INSTITUTIONS: Add locker coordinates
+-- ============================================================
+ALTER TABLE institutions ADD COLUMN IF NOT EXISTS locker_coordinates TEXT;
+
+-- ============================================================
+-- 8. DISPUTES TABLE
+-- ============================================================
+CREATE TYPE dispute_status AS ENUM ('open', 'under_review', 'resolved', 'dismissed');
+
+CREATE TABLE disputes (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  issue_type VARCHAR(50) NOT NULL,
+  description TEXT NOT NULL,
+  status dispute_status DEFAULT 'open',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_disputes_user ON disputes(user_id);
+
+ALTER TABLE disputes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can read own disputes"
+  ON disputes FOR SELECT
+  TO authenticated
+  USING (user_id = auth.uid());
+
+CREATE POLICY "Users can insert disputes"
+  ON disputes FOR INSERT
+  TO authenticated
+  WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Super admins can read all disputes"
+  ON disputes FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM users WHERE id = auth.uid() AND role = 'super_admin'
+    )
+  );
+
+-- Super admins can insert institutions
+CREATE POLICY "Super admins can insert institutions"
+  ON institutions FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM users WHERE id = auth.uid() AND role = 'super_admin'
+    )
+  );
+
+-- ============================================================
+-- 9. AI MATCHING ENGINE — matches & notifications
+-- ============================================================
+
+CREATE TABLE matches (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  lost_item_id UUID REFERENCES items(id) ON DELETE CASCADE NOT NULL,
+  found_item_id UUID REFERENCES items(id) ON DELETE CASCADE NOT NULL,
+  score NUMERIC(4,3) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (lost_item_id, found_item_id)
+);
+
+CREATE INDEX idx_matches_lost_item ON matches(lost_item_id);
+CREATE INDEX idx_matches_found_item ON matches(found_item_id);
+
+ALTER TABLE matches ENABLE ROW LEVEL SECURITY;
+
+-- Matches are written server-side via the service-role client (bypasses RLS).
+-- Reporters of either side of a match may read it.
+CREATE POLICY "Reporters can read their item matches"
+  ON matches FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM items WHERE items.id = matches.lost_item_id AND items.reporter_id = auth.uid())
+    OR EXISTS (SELECT 1 FROM items WHERE items.id = matches.found_item_id AND items.reporter_id = auth.uid())
+  );
+
+CREATE TABLE notifications (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT,
+  link TEXT,
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_notifications_user ON notifications(user_id, is_read);
+
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+
+-- Notifications are inserted server-side via the service-role client
+-- (bypasses RLS) — users may only read and update (mark-as-read) their own.
+CREATE POLICY "Users can read own notifications"
+  ON notifications FOR SELECT
+  TO authenticated
+  USING (user_id = auth.uid());
+
+CREATE POLICY "Users can update own notifications"
+  ON notifications FOR UPDATE
+  TO authenticated
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+
+-- ============================================================
+-- 10. CRYPTOGRAPHIC PICKUP TOKENS — claim release flow
+-- ============================================================
+
+CREATE TABLE pickup_tokens (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  claim_id UUID REFERENCES claims(id) ON DELETE CASCADE NOT NULL,
+  item_id UUID REFERENCES items(id) ON DELETE CASCADE NOT NULL,
+  token TEXT UNIQUE NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  scanned_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_pickup_tokens_claim ON pickup_tokens(claim_id);
+CREATE INDEX idx_pickup_tokens_token ON pickup_tokens(token);
+
+ALTER TABLE pickup_tokens ENABLE ROW LEVEL SECURITY;
+
+-- Tokens are minted and redeemed server-side via the service-role client
+-- (bypasses RLS, signature/expiry/single-use checks happen in the API routes).
+-- Claimants may read their own token to render the QR code; admins may read
+-- tokens for items in their institution to support the release scan.
+CREATE POLICY "Claimants can read own pickup tokens"
+  ON pickup_tokens FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM claims WHERE claims.id = pickup_tokens.claim_id AND claims.claimant_id = auth.uid())
+  );
+
+CREATE POLICY "Admins can read pickup tokens in their institution"
+  ON pickup_tokens FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM items
+      WHERE items.id = pickup_tokens.item_id
+      AND items.institution_id = public.get_auth_user_institution()
+      AND (public.get_auth_user_role() = 'campus_admin' OR public.get_auth_user_role() = 'super_admin')
+    )
+  );
+
+-- ============================================================
+-- 11. SEED DATA
 -- ============================================================
 
 -- Seed institution: IGDTUW

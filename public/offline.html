@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CampusFind — Offline</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Geist', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #F8FAFC;
+      color: #131b2e;
+      text-align: center;
+      padding: 2rem;
+    }
+    .icon {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: #dce1ff;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 1.5rem;
+    }
+    .icon svg { width: 40px; height: 40px; color: #1e3a8a; }
+    h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem; }
+    p { color: #444651; max-width: 400px; line-height: 1.6; }
+    button {
+      margin-top: 1.5rem;
+      padding: 0.75rem 2rem;
+      background: #1e3a8a;
+      color: white;
+      border: none;
+      border-radius: 0.5rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+    button:hover { background: #00236f; }
+  </style>
+</head>
+<body>
+  <div class="icon">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+    </svg>
+  </div>
+  <h1>You're Offline</h1>
+  <p>CampusFind requires an internet connection to load the latest items. Please check your connection and try again.</p>
+  <button onclick="window.location.reload()">Retry Connection</button>
+</body>
+</html>
