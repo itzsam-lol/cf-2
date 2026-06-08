@@ -16,16 +16,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: adminUser } = await supabase
-      .from('users')
-      .select('id, role, institution_id')
-      .eq('id', user.id)
-      .single();
-
-    if (!adminUser || (adminUser.role !== 'campus_admin' && adminUser.role !== 'super_admin')) {
-      return NextResponse.json({ error: 'Admin privileges required' }, { status: 403 });
-    }
-
     const payload = verifyPickupToken(token);
     if (!payload) {
       return NextResponse.json({ error: 'Invalid or tampered pickup code' }, { status: 400 });
@@ -46,7 +36,7 @@ export async function POST(request: Request) {
 
     const { data: tokenRow, error: tokenFetchError } = await serviceClient
       .from('pickup_tokens')
-      .select('id, claim_id, item_id, used_at, items!inner(id, institution_id, status, title)')
+      .select('id, claim_id, item_id, used_at, items!inner(id, reporter_id, status, title)')
       .eq('token', token)
       .single();
 
@@ -55,8 +45,10 @@ export async function POST(request: Request) {
     }
 
     const item = Array.isArray(tokenRow.items) ? tokenRow.items[0] : tokenRow.items;
-    if (!item || item.institution_id !== adminUser.institution_id) {
-      return NextResponse.json({ error: 'Pickup code not recognized' }, { status: 404 });
+    // The scanner must be the finder (the student who reported the item) —
+    // they confirm handing the item to the verified receiver.
+    if (!item || item.reporter_id !== user.id) {
+      return NextResponse.json({ error: 'Only the finder of this item can confirm the handover' }, { status: 403 });
     }
     if (tokenRow.used_at) {
       return NextResponse.json({ error: 'This pickup code has already been used' }, { status: 409 });
@@ -64,7 +56,7 @@ export async function POST(request: Request) {
 
     const { error: tokenUpdateError } = await serviceClient
       .from('pickup_tokens')
-      .update({ used_at: new Date().toISOString(), scanned_by: adminUser.id })
+      .update({ used_at: new Date().toISOString(), scanned_by: user.id })
       .eq('id', tokenRow.id);
     if (tokenUpdateError) throw tokenUpdateError;
 

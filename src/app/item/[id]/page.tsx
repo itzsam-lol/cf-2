@@ -1,14 +1,16 @@
 'use client';
 
-import { Shield, Clock, MapPin, User, ArrowLeft, Search, Loader2, Pencil, Trash2, X, CheckCircle2, Lock, MessageCircle, KeyRound } from 'lucide-react';
+import { Shield, Clock, MapPin, User, ArrowLeft, Search, Loader2, Pencil, Trash2, X, CheckCircle2, MessageCircle, KeyRound, ScanLine, QrCode } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState, use, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { QRCodeSVG } from 'qrcode.react';
 import { createClient } from '@/lib/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import AccuracyMeter from '@/components/AccuracyMeter';
 import ChatPanel from '@/components/ChatPanel';
+import PickupScannerModal from '@/components/PickupScannerModal';
 
 interface ItemData {
   id: string;
@@ -46,7 +48,10 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
   const [userId, setUserId] = useState<string | null>(null);
   const [claims, setClaims] = useState<ClaimRow[]>([]);
   const [myClaim, setMyClaim] = useState<ClaimRow | null>(null);
+  const [myToken, setMyToken] = useState<{ token: string; expires_at: string; used_at: string | null } | null>(null);
   const [editing, setEditing] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [now, setNow] = useState(Date.now());
 
   const isOwner = !!item && !!userId && item.reporter_id === userId;
   const isHighValue = item?.ai_tags && typeof item.ai_tags === 'object' && 'high_value' in item.ai_tags
@@ -85,13 +90,26 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
           .eq('item_id', id)
           .eq('claimant_id', user.id)
           .maybeSingle();
-        setMyClaim((mine as unknown as ClaimRow) || null);
+        const mineClaim = (mine as unknown as ClaimRow) || null;
+        setMyClaim(mineClaim);
+        // Once approved, the receiver gets a signed pickup QR to show the finder.
+        if (mineClaim && mineClaim.status === 'approved') {
+          const { data: tok } = await supabase
+            .from('pickup_tokens')
+            .select('token, expires_at, used_at')
+            .eq('claim_id', mineClaim.id)
+            .maybeSingle();
+          setMyToken((tok as { token: string; expires_at: string; used_at: string | null }) || null);
+        } else {
+          setMyToken(null);
+        }
       }
     }
     setLoading(false);
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
 
   const handleDelete = async () => {
     if (!confirm('Delete this item permanently? This cannot be undone.')) return;
@@ -103,20 +121,24 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
   };
 
   const handleResolve = async (claim: ClaimRow, approve: boolean) => {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from('claims')
-      .update({ status: approve ? 'approved' : 'rejected', processed_by: userId })
-      .eq('id', claim.id);
-    if (error) { toast.error('Failed to update claim'); return; }
-
     if (approve) {
-      await supabase.from('items').update({ status: 'claimed' }).eq('id', id);
-      toast.success('Marked as returned to this student');
+      // Approve + mint the receiver's pickup QR (item is marked returned only
+      // once the finder scans that QR at the physical handover).
+      const res = await fetch(`/api/claims/${claim.id}/approve`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data?.error || 'Failed to approve claim'); return; }
+      toast.success('Approved — scan the receiver’s QR at handover to complete the return.');
+      load();
     } else {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('claims')
+        .update({ status: 'rejected', processed_by: userId })
+        .eq('id', claim.id);
+      if (error) { toast.error('Failed to update claim'); return; }
       toast('Claim rejected');
+      load();
     }
-    load();
   };
 
   const getRelativeTime = (dateString: string) => {
@@ -251,14 +273,14 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
               ) : (
                 <div className="space-y-4">
                   {claims.map((claim) => (
-                    <OwnerClaimCard key={claim.id} claim={claim} userId={userId!} itemClaimed={item.status === 'claimed'} onResolve={handleResolve} />
+                    <OwnerClaimCard key={claim.id} claim={claim} userId={userId!} itemClaimed={item.status === 'claimed'} onResolve={handleResolve} onScan={() => setScanning(true)} />
                   ))}
                 </div>
               )}
             </section>
           )}
 
-          {/* Claimant: my claim status + chat */}
+          {/* Claimant: my claim status + pickup QR + chat */}
           {!isOwner && myClaim && (
             <section className="space-y-4">
               <div className="bg-background border border-border rounded-xl p-5">
@@ -269,12 +291,35 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
                   }`}>{myClaim.status === 'approved' ? 'Approved' : myClaim.status}</span>
                 </div>
                 <AccuracyMeter score={myClaim.ai_match_score} />
-                {myClaim.status === 'approved' && (
-                  <div className="mt-3 flex items-start gap-2 text-sm text-success bg-success/5 border border-success/20 rounded-lg p-3">
-                    <CheckCircle2 size={16} className="mt-0.5 shrink-0" /><p>The finder approved your claim. Use the chat below to arrange a safe handover on campus.</p>
-                  </div>
-                )}
               </div>
+
+              {/* Pickup QR — shown once the finder approves; the finder scans it
+                  at handover to complete the return. */}
+              {myClaim.status === 'approved' && (
+                <div className="bg-surface-container-lowest border border-border rounded-xl p-5 flex flex-col items-center">
+                  {item.status === 'claimed' || myToken?.used_at ? (
+                    <div className="w-full flex flex-col items-center gap-2 py-4 text-center">
+                      <div className="w-14 h-14 rounded-full bg-success/10 flex items-center justify-center"><CheckCircle2 size={28} className="text-success" /></div>
+                      <p className="font-semibold text-success">Handover complete</p>
+                      <p className="text-xs text-on-surface-variant">This item has been returned to you. It’s now in your history.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2 mb-1"><QrCode size={18} className="text-primary" /><h3 className="text-base font-semibold">Your pickup QR</h3></div>
+                      <p className="text-xs text-on-surface-variant text-center mb-4 max-w-xs">Show this to the finder when you meet. They scan it to confirm the handover and record the return.</p>
+                      {myToken ? (
+                        <>
+                          <div className="bg-white p-3 rounded-xl border border-border shadow-sm mb-3"><QRCodeSVG value={myToken.token} size={180} fgColor="#1E3A8A" /></div>
+                          <PickupCountdown expiresAt={myToken.expires_at} now={now} />
+                        </>
+                      ) : (
+                        <div className="w-[180px] h-[180px] flex items-center justify-center text-sm text-on-surface-variant text-center px-4">Generating your pickup code…</div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
               <div className="h-[440px]">
                 <ChatPanel claimId={myClaim.id} currentUserId={userId!} otherPartyName={item.reporter?.name} />
               </div>
@@ -299,11 +344,34 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
           <EditItemModal item={item} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); load(); }} />
         )}
       </AnimatePresence>
+
+      {scanning && (
+        <PickupScannerModal
+          onClose={() => setScanning(false)}
+          onReleased={() => { setScanning(false); load(); }}
+        />
+      )}
     </div>
   );
 }
 
-function OwnerClaimCard({ claim, userId, itemClaimed, onResolve }: { claim: ClaimRow; userId: string; itemClaimed: boolean; onResolve: (c: ClaimRow, approve: boolean) => void; }) {
+function PickupCountdown({ expiresAt, now }: { expiresAt: string; now: number }) {
+  const remainingMs = new Date(expiresAt).getTime() - now;
+  if (remainingMs <= 0) {
+    return <span className="text-xs font-semibold text-error">This pickup code has expired — ask the finder to re-approve.</span>;
+  }
+  const total = Math.floor(remainingMs / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return (
+    <span className="text-xs font-semibold text-on-surface-variant">
+      Valid for {h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`}
+    </span>
+  );
+}
+
+function OwnerClaimCard({ claim, userId, itemClaimed, onResolve, onScan }: { claim: ClaimRow; userId: string; itemClaimed: boolean; onResolve: (c: ClaimRow, approve: boolean) => void; onScan: () => void; }) {
   const [showChat, setShowChat] = useState(false);
   return (
     <div className="bg-background border border-border rounded-xl p-4">
@@ -330,15 +398,25 @@ function OwnerClaimCard({ claim, userId, itemClaimed, onResolve }: { claim: Clai
 
       <p className="text-sm text-on-surface-variant bg-surface-container-lowest rounded-lg p-3 border border-border mb-3">&ldquo;{claim.verification_proof}&rdquo;</p>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <button onClick={() => setShowChat((v) => !v)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-outline-variant text-xs font-semibold hover:bg-surface-container-low">
           <MessageCircle size={14} /> {showChat ? 'Hide chat' : 'Chat'}
         </button>
         {claim.status === 'pending' && !itemClaimed && (
           <>
             <button onClick={() => onResolve(claim, false)} className="flex-1 py-2 rounded-lg border border-outline-variant text-xs font-semibold text-error hover:bg-error/5">Reject</button>
-            <button onClick={() => onResolve(claim, true)} className="flex-1 py-2 rounded-lg bg-primary text-on-primary text-xs font-semibold hover:bg-primary-container">Mark returned</button>
+            <button onClick={() => onResolve(claim, true)} className="flex-1 py-2 rounded-lg bg-primary text-on-primary text-xs font-semibold hover:bg-primary-container">Approve handover</button>
           </>
+        )}
+        {claim.status === 'approved' && !itemClaimed && (
+          <button onClick={onScan} className="flex-1 py-2 rounded-lg bg-primary text-on-primary text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-primary-container">
+            <ScanLine size={14} /> Scan receiver’s QR
+          </button>
+        )}
+        {claim.status === 'approved' && itemClaimed && (
+          <span className="flex-1 py-2 rounded-lg bg-success/10 text-success text-xs font-semibold flex items-center justify-center gap-1.5">
+            <CheckCircle2 size={14} /> Handover complete
+          </span>
         )}
       </div>
 

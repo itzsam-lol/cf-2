@@ -174,9 +174,11 @@ export default function AdminOversightPage() {
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center ${c.status === 'approved' ? 'bg-success/10 text-success' : 'bg-error/10 text-error'}`}><ShieldCheck size={18} /></div>
                   <div className="flex-1">
                     <p className="text-sm font-semibold">{c.item.title} — {c.claimant?.name || 'Unknown'}</p>
-                    <p className="text-xs text-on-surface-variant">{c.status === 'approved' ? 'Returned' : 'Rejected'} · finder {c.item.reporter?.name || 'Unknown'} · AI {c.ai_match_score ?? '—'}%</p>
+                    <p className="text-xs text-on-surface-variant">
+                      {c.status === 'rejected' ? 'Rejected' : c.item.status === 'claimed' ? 'Returned (handover confirmed)' : 'Approved · awaiting handover'} · finder {c.item.reporter?.name || 'Unknown'} · AI {c.ai_match_score ?? '—'}%
+                    </p>
                   </div>
-                  <StatusPill status={c.status} />
+                  <StatusPill status={c.item.status === 'claimed' && c.status === 'approved' ? 'claimed' : c.status} />
                 </div>
               ))}
             </div>

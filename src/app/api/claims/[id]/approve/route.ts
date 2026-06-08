@@ -13,19 +13,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: adminUser } = await supabase
-      .from('users')
-      .select('role, institution_id')
-      .eq('id', user.id)
-      .single();
-
-    if (!adminUser || (adminUser.role !== 'campus_admin' && adminUser.role !== 'super_admin')) {
-      return NextResponse.json({ error: 'Admin privileges required' }, { status: 403 });
-    }
-
     const { data: claim, error: claimFetchError } = await supabase
       .from('claims')
-      .select('id, item_id, status, items!inner(id, institution_id)')
+      .select('id, item_id, claimant_id, status, items!inner(id, reporter_id, title)')
       .eq('id', claimId)
       .single();
 
@@ -34,8 +24,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     const item = Array.isArray(claim.items) ? claim.items[0] : claim.items;
-    if (!item || item.institution_id !== adminUser.institution_id) {
-      return NextResponse.json({ error: 'Claim not found' }, { status: 404 });
+    // Only the finder (the student who reported the item) may approve a claim
+    // on it and authorize the handover.
+    if (!item || item.reporter_id !== user.id) {
+      return NextResponse.json({ error: 'Only the finder can approve this claim' }, { status: 403 });
     }
     if (claim.status !== 'pending') {
       return NextResponse.json({ error: 'Claim has already been processed' }, { status: 409 });
@@ -45,7 +37,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'Release flow not configured' }, { status: 500 });
     }
 
-    // Service-role client: persisting the signed token and flipping item/claim
+    // Service-role client: persisting the signed token and flipping claim
     // status must succeed atomically and bypass the per-row RLS checks.
     const serviceClient = createServiceClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -53,17 +45,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
+    // Approve the claim and mint the receiver's signed pickup token. The item
+    // is NOT marked returned yet — that happens when the finder physically
+    // hands it over and scans the receiver's QR at /api/claims/release.
     const { error: claimUpdateError } = await serviceClient
       .from('claims')
       .update({ status: 'approved', processed_by: user.id })
       .eq('id', claimId);
     if (claimUpdateError) throw claimUpdateError;
-
-    const { error: itemUpdateError } = await serviceClient
-      .from('items')
-      .update({ status: 'claimed' })
-      .eq('id', item.id);
-    if (itemUpdateError) throw itemUpdateError;
 
     const { token, expiresAt } = generatePickupToken(claimId, item.id);
 
@@ -74,6 +63,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       expires_at: expiresAt,
     });
     if (tokenInsertError) throw tokenInsertError;
+
+    // Notify the receiver that their claim was approved and a pickup QR is ready.
+    const itemTitle = Array.isArray(claim.items) ? claim.items[0]?.title : (claim.items as { title?: string })?.title;
+    await serviceClient.from('notifications').insert({
+      user_id: claim.claimant_id,
+      type: 'claim_approved',
+      title: 'Your claim was approved',
+      body: `Show your pickup QR for "${itemTitle ?? 'your item'}" to the finder to complete the handover.`,
+      link: `/item/${claim.item_id}`,
+    });
 
     return NextResponse.json({ token, expiresAt });
   } catch (err) {
