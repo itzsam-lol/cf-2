@@ -4,7 +4,9 @@ import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { findDemoAccount, getDemoOtpSecret } from '@/lib/demoAccounts';
 
-const CODE_RE = /^\d{6}$/;
+// Supabase's email OTP length is configurable (6–10); accept that range so a
+// project set to 8 digits still works. Demo accounts use a fixed 6-digit code.
+const CODE_RE = /^\d{6,8}$/;
 const MAX_VERIFY_ATTEMPTS = 5;
 
 export async function POST(request: Request) {
@@ -17,7 +19,7 @@ export async function POST(request: Request) {
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedCode = String(code).trim();
     if (!CODE_RE.test(normalizedCode)) {
-      return NextResponse.json({ error: 'Enter the 6-digit code from your email' }, { status: 400 });
+      return NextResponse.json({ error: 'Enter the verification code from your email' }, { status: 400 });
     }
 
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {

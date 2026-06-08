@@ -155,8 +155,8 @@ function LoginContent() {
     setFormError(null);
 
     const trimmedOtp = otp.trim();
-    if (!/^\d{6}$/.test(trimmedOtp)) {
-      setFormError('Enter the 6-digit code from your email');
+    if (!/^\d{6,8}$/.test(trimmedOtp)) {
+      setFormError('Enter the verification code from your email');
       return;
     }
 
@@ -313,7 +313,7 @@ function LoginContent() {
               <div>
                 <p className="font-semibold text-on-surface">Enter your verification code</p>
                 <p className="text-sm text-on-surface-variant">
-                  We sent a 6-digit code to <span className="font-semibold text-on-surface">{email}</span>
+                  We sent a verification code to <span className="font-semibold text-on-surface">{email}</span>
                 </p>
               </div>
 
@@ -321,19 +321,19 @@ function LoginContent() {
                 type="text"
                 inputMode="numeric"
                 autoComplete="one-time-code"
-                maxLength={6}
+                maxLength={8}
                 required
                 value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 8))}
                 placeholder="••••••"
-                className="w-full h-14 px-4 rounded-lg border border-outline-variant bg-surface focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all text-on-surface text-center text-2xl font-bold tracking-[0.5em]"
+                className="w-full h-14 px-4 rounded-lg border border-outline-variant bg-surface focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all text-on-surface text-center text-2xl font-bold tracking-[0.4em]"
               />
 
               {formError && <p className="text-sm text-error font-medium">{formError}</p>}
 
               <button
                 type="submit"
-                disabled={verifying || otp.length !== 6}
+                disabled={verifying || otp.length < 6}
                 className="w-full h-12 rounded-lg bg-primary-container text-on-primary font-bold flex items-center justify-center gap-2 hover:bg-primary transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {verifying ? <Loader2 className="animate-spin" size={18} /> : <Shield size={18} />}
