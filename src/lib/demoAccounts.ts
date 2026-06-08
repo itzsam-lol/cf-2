@@ -20,14 +20,18 @@ export interface DemoAccount {
   institutionDomain: 'igdtuw.ac.in' | 'iiitd.ac.in';
 }
 
+// Demo addresses use the real institutional domains so they pass every
+// client- and server-side domain check exactly like a normal student would —
+// the only difference is that send-otp/verify-otp recognize them and accept
+// the private DEMO_OTP_SECRET code instead of a real emailed one.
 export const DEMO_ACCOUNTS: DemoAccount[] = [
-  { email: 'admin@test.igdtuw', name: 'Demo Admin (IGDTUW)', role: 'campus_admin', institutionDomain: 'igdtuw.ac.in' },
-  { email: 'admin@test.iiitd', name: 'Demo Admin (IIITD)', role: 'campus_admin', institutionDomain: 'iiitd.ac.in' },
-  { email: 'student01@test.igdtuw', name: 'Demo Student 01', role: 'student', institutionDomain: 'igdtuw.ac.in' },
-  { email: 'student02@test.igdtuw', name: 'Demo Student 02', role: 'student', institutionDomain: 'igdtuw.ac.in' },
-  { email: 'student03@test.igdtuw', name: 'Demo Student 03', role: 'student', institutionDomain: 'igdtuw.ac.in' },
-  { email: 'student04@test.iiitd', name: 'Demo Student 04', role: 'student', institutionDomain: 'iiitd.ac.in' },
-  { email: 'student05@test.iiitd', name: 'Demo Student 05', role: 'student', institutionDomain: 'iiitd.ac.in' },
+  { email: 'admin@igdtuw.ac.in', name: 'Demo Admin (IGDTUW)', role: 'campus_admin', institutionDomain: 'igdtuw.ac.in' },
+  { email: 'admin@iiitd.ac.in', name: 'Demo Admin (IIITD)', role: 'campus_admin', institutionDomain: 'iiitd.ac.in' },
+  { email: 'student01@igdtuw.ac.in', name: 'Demo Student 01', role: 'student', institutionDomain: 'igdtuw.ac.in' },
+  { email: 'student02@igdtuw.ac.in', name: 'Demo Student 02', role: 'student', institutionDomain: 'igdtuw.ac.in' },
+  { email: 'student03@igdtuw.ac.in', name: 'Demo Student 03', role: 'student', institutionDomain: 'igdtuw.ac.in' },
+  { email: 'student04@iiitd.ac.in', name: 'Demo Student 04', role: 'student', institutionDomain: 'iiitd.ac.in' },
+  { email: 'student05@iiitd.ac.in', name: 'Demo Student 05', role: 'student', institutionDomain: 'iiitd.ac.in' },
 ];
 
 export function findDemoAccount(email: string): DemoAccount | undefined {
