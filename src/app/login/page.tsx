@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState, useEffect, type FormEvent } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { findDemoAccount } from '@/lib/demoAccounts';
 import { toast } from 'sonner';
 
 interface Institution {
@@ -114,7 +115,11 @@ function LoginContent() {
     setFormError(null);
 
     const normalized = email.trim().toLowerCase();
-    if (!normalized.endsWith(`@${selected.email_domain.toLowerCase()}`)) {
+    // Pre-seeded demo/reviewer addresses skip the institutional-domain check
+    // here too — the server applies the real gating (a private env-only
+    // secret code) on the next step.
+    const isDemoAddress = Boolean(findDemoAccount(normalized));
+    if (!isDemoAddress && !normalized.endsWith(`@${selected.email_domain.toLowerCase()}`)) {
       setFormError(`Use your ${selected.name} email address — it must end with @${selected.email_domain}`);
       return;
     }
