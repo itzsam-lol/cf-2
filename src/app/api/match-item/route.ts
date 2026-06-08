@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 
 // Blueprint matching formula: S = (w1 * C) + (w2 * B) + (w3 * Sim(D_F, D_L))
 const WEIGHT_CATEGORY = 0.40;
@@ -50,8 +51,14 @@ function brandOf(aiTags: unknown): string {
 
 export async function POST(request: Request) {
   try {
+    const sessionClient = await createServerClient();
+    const { data: { user } } = await sessionClient.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { itemId } = await request.json();
-    if (!itemId) {
+    if (!itemId || typeof itemId !== 'string') {
       return NextResponse.json({ error: 'itemId is required' }, { status: 400 });
     }
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -74,6 +81,13 @@ export async function POST(request: Request) {
 
     if (foundItemError || !foundItem) {
       return NextResponse.json({ error: 'Item not found' }, { status: 404 });
+    }
+
+    // Only the reporter (who just submitted this "found" item) may trigger
+    // matching for it — prevents arbitrary callers from spamming the engine
+    // and burning notification rows for items they don't own.
+    if (foundItem.reporter_id !== user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const { data: lostItems, error: lostItemsError } = await supabase

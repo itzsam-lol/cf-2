@@ -117,16 +117,24 @@ CREATE POLICY "Users can read same institution"
   TO authenticated
   USING (institution_id = public.get_auth_user_institution());
 
+-- WITH CHECK pins role to 'student' on self-registration and forbids changing
+-- role/institution_id on self-update — otherwise any authenticated user could
+-- grant themselves campus_admin/super_admin via a direct REST call
+-- (auth.uid() = id alone does not constrain which columns are written).
 CREATE POLICY "Users can insert own record"
   ON users FOR INSERT
   TO authenticated
-  WITH CHECK (auth.uid() = id);
+  WITH CHECK (auth.uid() = id AND role = 'student');
 
 CREATE POLICY "Users can update own record"
   ON users FOR UPDATE
   TO authenticated
   USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);
+  WITH CHECK (
+    auth.uid() = id
+    AND role = public.get_auth_user_role()
+    AND institution_id = public.get_auth_user_institution()
+  );
 
 -- ITEMS: users can only read items from their own institution
 ALTER TABLE items ENABLE ROW LEVEL SECURITY;
@@ -170,10 +178,18 @@ CREATE POLICY "Users can read own claims"
   TO authenticated
   USING (claimant_id = auth.uid());
 
+-- Pin status to 'pending' and forbid setting admin-only fields on self-insert —
+-- otherwise a claimant could fabricate an already-"approved"/"rejected" claim
+-- with a forged processed_by, impersonating an admin's decision.
 CREATE POLICY "Users can insert claims"
   ON claims FOR INSERT
   TO authenticated
-  WITH CHECK (claimant_id = auth.uid());
+  WITH CHECK (
+    claimant_id = auth.uid()
+    AND status = 'pending'
+    AND processed_by IS NULL
+    AND admin_notes IS NULL
+  );
 
 CREATE POLICY "Admins can read claims in their institution"
   ON claims FOR SELECT
@@ -351,7 +367,26 @@ CREATE POLICY "Admins can read pickup tokens in their institution"
   );
 
 -- ============================================================
--- 11. SEED DATA
+-- 11. OTP AUTH RATE LIMITING
+-- ============================================================
+
+-- Tracks per-email OTP send cadence so /api/auth/send-otp can enforce a
+-- cooldown + hourly cap (the OTP codes themselves are minted and verified
+-- entirely by Supabase Auth — this table never stores a code).
+CREATE TABLE otp_requests (
+  email TEXT PRIMARY KEY,
+  last_sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  send_count INT NOT NULL DEFAULT 1,
+  window_start TIMESTAMPTZ NOT NULL DEFAULT now(),
+  failed_attempts INT NOT NULL DEFAULT 0
+);
+
+ALTER TABLE otp_requests ENABLE ROW LEVEL SECURITY;
+-- No public policies — all reads/writes happen server-side via the
+-- service-role client inside the OTP API routes.
+
+-- ============================================================
+-- 12. SEED DATA
 -- ============================================================
 
 -- Seed institution: IGDTUW
